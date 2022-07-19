@@ -195,18 +195,7 @@ function Invoke-BkpOnboard {
                 Write-Output ("[!] Cannot reach the Active Directory, exiting!");
                 exit;
             }
-
         
-        
-        
-            [byte[]] $prefMasterKey = Get-PreferredMasterKeyFile($mkLocation);
-            [Guid] $oldMkBkpGuid = Get-MasterKeyBkpGuid($prefMasterKey);
-
-
-
-
-
-            
 
             # Expire current Master key
             Write-Output ("");
@@ -239,23 +228,6 @@ function Invoke-BkpOnboard {
             [byte[]] $newPrefBytes = Get-PreferredFile($mkLocation);
             Describe-PreferredFile($newPrefBytes);
 
-
-
-            [byte[]] $newPrefMKBytes = Get-PreferredMasterKeyFile($mkLocation);
-            [Guid] $newPrefBkpGuid = Get-MasterKeyBkpGuid($newPrefMKBytes);
-
-            
-            Write-Output ("");
-            Write-Output ("[-] Validating new backup key usage...");
-            if($oldMkBkpGuid -ne $newPrefBkpGuid)
-            {
-              
-              Write-Output ("[+] Successfully onboarded " + $env:USERNAME + " to use new backup key with Guid: " + $newPrefBkpGuid);
-            }
-            else {
-                
-              Write-Output ("[?] User already onboarded to Backup key with Guid: "+ $newPrefBkpGuid);
-            }
 
 
         }
