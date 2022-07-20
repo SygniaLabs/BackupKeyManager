@@ -32,13 +32,6 @@ function Describe-PreferredFile {
     [int64] $ftMKTicks = [System.BitConverter]::ToInt64($ftMK,0);
     $currExp = [datetime]::FromFileTimeUTC($ftMKTicks);
     Write-Output ("[-] Preferred Master key Expiration: " + $currExp + " UTC");
-
-
-    ## Decribe preferred MK backup key guid
-    [byte[]] $prefMasterKey = Get-PreferredMasterKeyFile($mkLocation);
-    [Guid] $mkBkpGuid = Get-MasterKeyBkpGuid($prefMasterKey);
-    Write-Output ("[-] Preferred Master key Backup key Guid: " + $mkBkpGuid);
-
 }
 
 
@@ -51,24 +44,25 @@ function Get-MasterKeyBkpGuid {
     [int] $mkHeaderLen = $mkHeaderLengthsOffset + (8*4);
    
    
-    [byte[]] $mkSec1LenByte = $prefMasterKey[$mkHeaderLengthsOffset..($mkHeaderLengthsOffset+7)]
+    [byte[]] $mkSec1LenByte = $masterKeyBytes[$mkHeaderLengthsOffset..($mkHeaderLengthsOffset+7)]
     [uint64] $mkSec1Len = [System.BitConverter]::ToUint64($mkSec1LenByte, 0);
    
    
-    [byte[]] $mkSec2LenByte = $prefMasterKey[($mkHeaderLengthsOffset+8)..($mkHeaderLengthsOffset+7+8)]
+    [byte[]] $mkSec2LenByte = $masterKeyBytes[($mkHeaderLengthsOffset+8)..($mkHeaderLengthsOffset+7+8)]
     [uint64] $mkSec2Len = [System.BitConverter]::ToUint64($mkSec2LenByte, 0);
    
-    [byte[]] $mkSec3LenByte = $prefMasterKey[($mkHeaderLengthsOffset+16)..($mkHeaderLengthsOffset+7+16)]
+    [byte[]] $mkSec3LenByte = $masterKeyBytes[($mkHeaderLengthsOffset+16)..($mkHeaderLengthsOffset+7+16)]
     [uint64] $mkSec3Len = [System.BitConverter]::ToUint64($mkSec3LenByte, 0);
    
-    [byte[]] $mkSec4LenByte = $prefMasterKey[($mkHeaderLengthsOffset+24)..($mkHeaderLengthsOffset+7+24)]
+    [byte[]] $mkSec4LenByte = $masterKeyBytes[($mkHeaderLengthsOffset+24)..($mkHeaderLengthsOffset+7+24)]
     [uint64] $mkSec4Len = [System.BitConverter]::ToUint64($mkSec4LenByte, 0);
    
    
     [int] $domBkpKeyOffset = $mkHeaderLen + $mkSec1Len + $mkSec2Len + $mkSec3Len
-    [byte[]] $domBkpKeyBytes = $prefMasterKey[$domBkpKeyOffset..($domBkpKeyOffset+$mkSec4Len)]
+    [byte[]] $domBkpKeyBytes = $masterKeyBytes[$domBkpKeyOffset..($domBkpKeyOffset+$mkSec4Len)]
     [byte[]] $domBkpKeyGuidBytes = $domBkpKeyBytes[12..27]
-    [Guid] $bkpGuid = [Guid]($domBkpKeyGuidBytes);
+    Try { [Guid] $bkpGuid = [Guid]($domBkpKeyGuidBytes); }
+    Catch { [Guid] $bkpGuid = [GUID]::Empty; }
 
     return $bkpGuid
 }
@@ -96,16 +90,46 @@ function Get-MasterKeyFile {
 }
 
 
-function Get-PreferredMasterKeyFile {
+function Get-PreferredMasterKeyGuid {
     param(
     [Parameter (Mandatory = $true)] [String]$mkLocation
     )
     [byte[]] $prefBytes = Get-PreferredFile($mkLocation);
     [byte[]] $guidBytes = $prefBytes[0..15]
     [Guid] $prefGuid = [Guid]($guidBytes);
-    [String] $prefGuidStr = $prefGuid.ToString();
-    [byte[]] $prefMK = (Get-MasterKeyFile $mkLocation $prefGuidStr);
-    return ,$prefMK
+    return $prefGuid
+}
+
+
+
+function Map-ADUserMasterKeys {
+    param(
+    [Parameter (Mandatory = $true)] [String]$mkPath
+    )
+    $myMKs = Get-ChildItem -Path $mkPath -Hidden | Where{$_.Name -match "[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}"};
+    
+    $mkMap = [System.Collections.ArrayList]::new();
+    ForEach ($mk in $myMKs)
+    {
+
+        $prefFlag = $false;
+        $preferredGuidStr = (Get-PreferredMasterKeyGuid($mkPath)).ToString();
+        if ($preferredGuidStr -eq $mk.Name) { $prefFlag = $true};
+        [byte[]] $mkFileBytes = Get-MasterKeyFile $mkPath $mk.Name;
+        [Guid] $mkBkpGuid = Get-MasterKeyBkpGuid($mkFileBytes);
+        
+        $null = $mkMap.Add(
+        [PSCustomObject]@{
+        PSTypeName = "MasterKeyBkp"
+        isPreferred = $prefFlag
+        Modified = $mk.LastWriteTimeUTC
+        Guid = $mk.Name
+        Backup_Guid = $mkBkpGuid
+        })
+
+    }
+    
+    return $mkMap;
 }
 
 
@@ -157,7 +181,8 @@ function Trigger-DPAPIProtect {
 
 function Invoke-BkpOnboard {
     param(
-    [Parameter (Mandatory = $true)] [String]$Mode
+    [Parameter (Mandatory = $true)] [String]$Mode,
+    [Parameter (Mandatory = $false)] [String]$BackupGuid
     )
 
     if (($env:USERDNSDOMAIN).length -le 2){
@@ -172,13 +197,36 @@ function Invoke-BkpOnboard {
     [String] $mkLocation = (Get-ADUserMasterKeyLocation);
     
     
-    # Reading Preferred file
-    if (($Mode -eq "Info") -or ($Mode -eq "Soft") -or ($Mode -eq "Forced"))
-    {  
         
         Write-Output ("");      
         [byte[]] $prefBytes = Get-PreferredFile($mkLocation);
-        Describe-PreferredFile($prefBytes);
+        Describe-PreferredFile($prefBytes);      
+        $initialMkMap = Map-ADUserMasterKeys($mkLocation) | sort Modified -Descending;
+
+        
+
+        if ($Mode -eq "Info")
+        {
+            Write-Output ("");
+            Write-Output ("[-] Mapping User Master keys");
+            $initialMkMap;
+        }
+        
+
+        if (($Mode -eq "Check") -and ($BackupGuid))
+        {
+            Write-Output ("");
+            Write-Output ("[-] Checking for Master keys encrypted with Backup key: $BackupGuid");
+            $checkMkwithBkp = $initialMkMap | Where-Object {$_.Backup_Guid -eq $BackupGuid};
+            $checkMkwithBkp;
+            if ($checkMkwithBkp.Length -le 1)
+                {
+                    Write-Output ("[+] No Master keys found!");
+                }
+        }
+
+
+
 
 
 
@@ -226,10 +274,26 @@ function Invoke-BkpOnboard {
 
             Write-Output ("");
             [byte[]] $newPrefBytes = Get-PreferredFile($mkLocation);
+            
             Describe-PreferredFile($newPrefBytes);
+            
+            
+            $newMkMap = Map-ADUserMasterKeys($mkLocation) | sort Modified -Descending;
 
+            
+            Write-Output ("");
+            if ($initialMkMap[0].Backup_Guid -eq $newMkMap[0].Backup_Guid)
+            {
+                Write-Output ("[?] Looks like your the user already has Master keys onboarded to this Backup key: " + $newMkMap[0].Backup_Guid);
+                $newMkMap | Where-Object {$_.Backup_Guid -eq $newMkMap[0].Backup_Guid}
+            }
+            else
+            {
+                Write-Output ("[+] SUCCESS: User onboarded to Backup key: " + $newMkMap[0].Backup_Guid);
+                $newMkMap | Where-Object {$_.Backup_Guid -eq $newMkMap[0].Backup_Guid}
+            }
 
 
         }
-    }
+
 }

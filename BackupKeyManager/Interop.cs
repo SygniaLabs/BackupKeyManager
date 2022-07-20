@@ -218,6 +218,11 @@ namespace BackupKeyManager
                 certificatePtr = Marshal.AllocHGlobal(certLen);
                 Marshal.Copy(certBytes, 0, certificatePtr, certLen);
             }
+            public void FreePtrs()
+            {
+                Marshal.FreeHGlobal(cspBlobPtr);
+                Marshal.FreeHGlobal(certificatePtr);
+            }
         }
 
         public enum KERB_ETYPE : UInt32

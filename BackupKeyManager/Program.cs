@@ -14,6 +14,7 @@ using System.Text.RegularExpressions;
 
 namespace BackupKeyManager
 {
+
     class Program
     {
         [Verb("GetPreferredBackupGUID", HelpText = "Extract the GUID of the preferred (current) backup key")]
@@ -65,7 +66,7 @@ namespace BackupKeyManager
         [Verb("GenerateNewBackupKey", HelpText = "Generate GUID and new backup key with option to push and set as preferred.")]
         class GenerateNewBackupKey_Opts
         {
-            [Option('d', "DomainName", Required = true, HelpText = "FQDN of the required domain. This will be included in the public key part.")]
+            [Option('d', "DomainName", Required = true, HelpText = "FQDN of the required domain. This will be included in the public certificate.")]
             public string DomainName { get; set; }
 
             [Option('o', "OutputFile", Required = false, HelpText = "Dump Backupkey and certificate DER format outputs to files")]
@@ -97,31 +98,46 @@ namespace BackupKeyManager
 
 
 
-        public static Guid GetPreferredBackupGUID(IntPtr LsaPolicyHandle)
+        public static bool checkNTstatus(uint ntStatus, string calledFunction, bool continueOnError = false)
         {
-            IntPtr PrivateData = IntPtr.Zero;
-            Interop.LSA_UNICODE_STRING secretName = new Interop.LSA_UNICODE_STRING("G$BCKUPKEY_PREFERRED");
 
-            // grab the GUID of the G$BCKUPKEY_PREFERRED key
-            uint ntsResult = Interop.LsaRetrievePrivateData(LsaPolicyHandle, ref secretName, out PrivateData);
-
-            if (ntsResult != 0)
+            if (ntStatus != 0)
             {
-                uint winErrorCode = Interop.LsaNtStatusToWinError(ntsResult);
+                uint winErrorCode = Interop.LsaNtStatusToWinError(ntStatus);
                 string errorMessage = new Win32Exception((int)winErrorCode).Message;
-                Console.WriteLine("  [!] Error calling LsaRetrievePrivateData {0} : {1}", winErrorCode, errorMessage);
-                return Guid.Empty;
+                Console.WriteLine("  [!] Error calling {0} {1} : {2}", calledFunction, winErrorCode, errorMessage);
+                if (!continueOnError) { throw new InvalidOperationException("Error calling " + calledFunction); }
+                return false;
+            }
+            else
+            {
+                return true;
             }
 
-            // copy out the GUID bytes
+        }
+
+        public static Guid GetPreferredBackupGUID(IntPtr LsaPolicyHandle)
+        {
+           
+            Interop.LSA_UNICODE_STRING secretName = new Interop.LSA_UNICODE_STRING("G$BCKUPKEY_PREFERRED");
+
+            uint ntsResult = Interop.LsaRetrievePrivateData(LsaPolicyHandle, ref secretName, out IntPtr PrivateData);
+            checkNTstatus(ntsResult, "LsaRetrievePrivateData");
+
+
             Interop.LSA_UNICODE_STRING lusSecretData = 
                 (Interop.LSA_UNICODE_STRING)Marshal.PtrToStructure(PrivateData, typeof(Interop.LSA_UNICODE_STRING));
+            Marshal.FreeHGlobal(PrivateData);
+
+
             byte[] guidBytes = new byte[lusSecretData.Length];
-            Marshal.Copy(lusSecretData.buffer, guidBytes, 0, lusSecretData.Length);
+            Marshal.Copy(lusSecretData.buffer, guidBytes, 0, lusSecretData.Length);  // Copy the GUID bytes from the secret data
 
 
             Guid backupKeyGuid = new Guid(guidBytes);
             Console.WriteLine("[+] Preferred backupkey Guid         : {0}", backupKeyGuid);
+
+
             return backupKeyGuid;
 
         }
@@ -129,35 +145,22 @@ namespace BackupKeyManager
         public static void SetPreferredBackupKeyByGUID(IntPtr LsaPolicyHandle, Guid newPreferredGUID)
         {
 
+            string guidStrBytes = System.Text.Encoding.Unicode.GetString(newPreferredGUID.ToByteArray());
+            Interop.LSA_UNICODE_STRING privateData = new Interop.LSA_UNICODE_STRING(guidStrBytes);
+            Interop.LSA_UNICODE_STRING secretName = new Interop.LSA_UNICODE_STRING("G$BCKUPKEY_PREFERRED");
 
-            // Create secret name object
-            Interop.LSA_UNICODE_STRING secretName = 
-                new Interop.LSA_UNICODE_STRING("G$BCKUPKEY_PREFERRED");
-            
-            // Create Private data object
-            Interop.LSA_UNICODE_STRING privateData = 
-                new Interop.LSA_UNICODE_STRING(System.Text.Encoding.Unicode.GetString(newPreferredGUID.ToByteArray()));
 
-            // Create pointer that points to secretName
-            IntPtr secretNamePointer = IntPtr.Zero;
-            secretNamePointer = Marshal.AllocHGlobal(Marshal.SizeOf(secretName));
-            Marshal.StructureToPtr(secretName, secretNamePointer, false);
+            //IntPtr secretNamePointer = Marshal.AllocHGlobal(Marshal.SizeOf(secretName));
+            //Marshal.StructureToPtr(secretName, secretNamePointer, false);
 
-            // Create pointer that points to privateData
-            IntPtr privateDataPointer = IntPtr.Zero;
-            privateDataPointer = Marshal.AllocHGlobal(Marshal.SizeOf(privateData));
-            Marshal.StructureToPtr(privateData, privateDataPointer, false);
+            //IntPtr privateDataPointer = Marshal.AllocHGlobal(Marshal.SizeOf(privateData));
+            //Marshal.StructureToPtr(privateData, privateDataPointer, false);
 
-            // Store the private data
+            // Store the new Guid in BCKUPKEY_PREFERRED
             uint ntsResult = Interop.LsaStorePrivateData(LsaPolicyHandle, ref secretName, ref privateData);
+            checkNTstatus(ntsResult, "LsaStorePrivateData");
 
-            if (ntsResult != 0)
-            {
-                uint winErrorCode = Interop.LsaNtStatusToWinError(ntsResult);
-                string errorMessage = new Win32Exception((int)winErrorCode).Message;
-                Console.WriteLine("  [!] Error calling LsaStorePrivateData {0} : {1}", winErrorCode, errorMessage);
-                return;
-            }
+
 
             Console.WriteLine($"[+] Modified preferred backup GUID to: {newPreferredGUID}");
 
@@ -170,26 +173,23 @@ namespace BackupKeyManager
                        
             string backupKeyName = String.Format("G$BCKUPKEY_{0}", backupKeyGuid.ToString());
             Console.WriteLine("[+] Getting backup key     : {0}", backupKeyName);
+            
             Interop.LSA_UNICODE_STRING backupKeyLSA = new Interop.LSA_UNICODE_STRING(backupKeyName);
 
             // retrieve the bytes of the full DPAPI private backup key
-            IntPtr PrivateDataKey = IntPtr.Zero;
-            uint ntsResult = Interop.LsaRetrievePrivateData(LsaPolicyHandle, ref backupKeyLSA, out PrivateDataKey);
+            uint ntsResult = Interop.LsaRetrievePrivateData(LsaPolicyHandle, ref backupKeyLSA, out IntPtr PrivateData);
+            
+            checkNTstatus(ntsResult, "LsaRetrievePrivateData");
 
-            if (ntsResult != 0)
-            {
-                uint winErrorCode = Interop.LsaNtStatusToWinError(ntsResult);
-                string errorMessage = new Win32Exception((int)winErrorCode).Message;
-                Console.WriteLine("\r\n[!] Error calling LsaRetrievePrivateData ({0}) : {1}\r\n", winErrorCode, errorMessage);
-                return null;
-            }
+            Interop.LSA_UNICODE_STRING backupKeyBytesLSA = (Interop.LSA_UNICODE_STRING)Marshal.PtrToStructure(PrivateData, typeof(Interop.LSA_UNICODE_STRING));
+            Marshal.FreeHGlobal(PrivateData);
 
-            Interop.LSA_UNICODE_STRING backupKeyBytesLSA = (Interop.LSA_UNICODE_STRING)Marshal.PtrToStructure(PrivateDataKey, typeof(Interop.LSA_UNICODE_STRING));
+
             byte[] backupKeyBytes = new byte[backupKeyBytesLSA.Length];
             Marshal.Copy(backupKeyBytesLSA.buffer, backupKeyBytes, 0, backupKeyBytesLSA.Length);
 
 
-            if (analyze && !String.IsNullOrEmpty(DomainController))
+            if (analyze)
             {
                 string domainName = dcToDomain(DomainController);
                 var dpapiDomainBackupKey = analyzeBackupKeyBytes(backupKeyBytes);
@@ -204,24 +204,17 @@ namespace BackupKeyManager
             return backupKeyBytes;
         }
 
-        public static IntPtr GetBackupKeyHandleByGuid(IntPtr LsaPolicyHandle, Guid BackupKeyGuid)
+        public static IntPtr GetBackupKeyHandleByGuid(IntPtr LsaPolicyHandle, Guid BackupKeyGuid, bool continueOnError = false)
         {
 
             string BackupKeyName = String.Format("G$BCKUPKEY_{0}", BackupKeyGuid.ToString());
             Console.WriteLine("[+] Getting handle of BackupKey     : {0}", BackupKeyName);
+            
             Interop.LSA_UNICODE_STRING BackupKeyNameLSA = new Interop.LSA_UNICODE_STRING(BackupKeyName);
 
-            IntPtr BackupKeySecretHandle = IntPtr.Zero;
+            uint ntsResult = Interop.LsaOpenSecret(LsaPolicyHandle, ref BackupKeyNameLSA, (uint)Interop.LSA_AccessSecret.SECRET_SET_VALUE, out IntPtr BackupKeySecretHandle);
 
-            uint ntsResult = Interop.LsaOpenSecret(LsaPolicyHandle, ref BackupKeyNameLSA, (uint)Interop.LSA_AccessSecret.SECRET_SET_VALUE, out BackupKeySecretHandle);
-
-            if (ntsResult != 0)
-            {
-                uint winErrorCode = Interop.LsaNtStatusToWinError(ntsResult);
-                string errorMessage = new Win32Exception((int)winErrorCode).Message;
-                Console.WriteLine("\r\n[!] Error calling LsaOpenSecret ({0}) : {1}\r\n", winErrorCode, errorMessage);
-                return IntPtr.Zero;
-            }
+            checkNTstatus(ntsResult, "LsaOpenSecret", continueOnError);
 
             Console.WriteLine("[+] Handle to Backup Key     : {0}  ->  {1}", BackupKeyName, BackupKeySecretHandle.ToString());
             return BackupKeySecretHandle;
@@ -234,17 +227,10 @@ namespace BackupKeyManager
             Console.WriteLine("[+] New Backup Key to be created     : {0}", NewBackupKeyName);
             Interop.LSA_UNICODE_STRING NewBackupKeyNameLSA = new Interop.LSA_UNICODE_STRING(NewBackupKeyName);
 
-            IntPtr NewBackupKeySecretHandle = IntPtr.Zero;
 
-            uint ntsResult = Interop.LsaCreateSecret(LsaPolicyHandle, ref NewBackupKeyNameLSA, (uint)Interop.LSA_AccessPolicy.POLICY_CREATE_SECRET, out NewBackupKeySecretHandle);
+            uint ntsResult = Interop.LsaCreateSecret(LsaPolicyHandle, ref NewBackupKeyNameLSA, (uint)Interop.LSA_AccessPolicy.POLICY_CREATE_SECRET, out IntPtr NewBackupKeySecretHandle);
 
-            if (ntsResult != 0)
-            {
-                uint winErrorCode = Interop.LsaNtStatusToWinError(ntsResult);
-                string errorMessage = new Win32Exception((int)winErrorCode).Message;
-                Console.WriteLine("\r\n[!] Error calling LsaCreateSecret ({0}) : {1}\r\n", winErrorCode, errorMessage);
-                return IntPtr.Zero;
-            }
+            checkNTstatus(ntsResult, "LsaCreateSecret");
 
             Console.WriteLine("[+] New Backup Key created successfully     : {0}", NewBackupKeyName);
             return NewBackupKeySecretHandle;
@@ -254,23 +240,15 @@ namespace BackupKeyManager
         {
 
             string BackupKeyValueStr = System.Text.Encoding.Unicode.GetString(BackupKeyValueByte);
-            Interop.LSA_UNICODE_STRING BackupKeyValueStrLSA = 
-                new Interop.LSA_UNICODE_STRING(BackupKeyValueStr);
+            Interop.LSA_UNICODE_STRING BackupKeyValueStrLSA = new Interop.LSA_UNICODE_STRING(BackupKeyValueStr);
 
-            IntPtr BackupKeyValueStrLSAPointer = IntPtr.Zero;
-            BackupKeyValueStrLSAPointer = Marshal.AllocHGlobal(Marshal.SizeOf(BackupKeyValueStrLSA));
-            Marshal.StructureToPtr(BackupKeyValueStrLSA, BackupKeyValueStrLSAPointer, false);
+            //IntPtr BackupKeyValueStrLSAPointer = Marshal.AllocHGlobal(Marshal.SizeOf(BackupKeyValueStrLSA));
+            //Marshal.StructureToPtr(BackupKeyValueStrLSA, BackupKeyValueStrLSAPointer, false);
 
             Console.WriteLine("[+] Setting BackupKey value...");
             uint ntsResult = Interop.LsaSetSecret(BackupKeyHandle, ref BackupKeyValueStrLSA, ref BackupKeyValueStrLSA);
 
-            if (ntsResult != 0)
-            {
-                uint winErrorCode = Interop.LsaNtStatusToWinError(ntsResult);
-                string errorMessage = new Win32Exception((int)winErrorCode).Message;
-                Console.WriteLine("\r\n[!] Error calling LsaSetSecret ({0}) : {1}\r\n", winErrorCode, errorMessage);
-                return;
-            }
+            checkNTstatus(ntsResult, "LsaSetSecret");
 
             Console.WriteLine("[+] BackupKey value was set successfully!");
             return;  
@@ -340,6 +318,8 @@ namespace BackupKeyManager
             Marshal.Copy(domainBackupKey.cspBlobPtr, dpapiBackupKeyBytes, 12, cspBlob.Length);
             Marshal.Copy(domainBackupKey.certificatePtr, dpapiBackupKeyBytes, 12+cspBlob.Length, certBytesWithGuid.Length);
 
+            
+            domainBackupKey.FreePtrs(); // Customized Free for Csp ptr and Certificate Ptr
 
 
             if (outFile)
@@ -356,13 +336,7 @@ namespace BackupKeyManager
         public static IntPtr Initialize(string dc)
         {
             Console.WriteLine("\r\n[+] Setting up connection with Domain Controller: {0}", dc);
-            string system = dc;
 
-            uint aWinErrorCode = 0;
-            // initialize a pointer for the policy handle
-            IntPtr LsaPolicyHandle = IntPtr.Zero;
-
-            // these attributes are not used, but LsaOpenPolicy wants them to exists
             Interop.LSA_OBJECT_ATTRIBUTES aObjectAttributes = new Interop.LSA_OBJECT_ATTRIBUTES();
             aObjectAttributes.Length = 0;
             aObjectAttributes.RootDirectory = IntPtr.Zero;
@@ -371,18 +345,9 @@ namespace BackupKeyManager
             aObjectAttributes.SecurityQualityOfService = IntPtr.Zero;
 
 
-            Interop.LSA_UNICODE_STRING aSystemName = new Interop.LSA_UNICODE_STRING(system);
-            uint aOpenPolicyResult = Interop.LsaOpenPolicy(ref aSystemName, ref aObjectAttributes, (uint)Interop.LSA_AccessPolicy.POLICY_ALL, out LsaPolicyHandle);
-            aWinErrorCode = Interop.LsaNtStatusToWinError(aOpenPolicyResult);
-
-            if (aWinErrorCode != 0x00000000)
-            {
-
-                string errorMessage = new Win32Exception((int)aWinErrorCode).Message;
-                Console.WriteLine("\r\n[!] Error calling LsaOpenPolicy ({0}) : {1}\r\n", aWinErrorCode, errorMessage);
-                System.Environment.Exit(1); // We have nothing to do if this function fails.
-                //return IntPtr.Zero;
-            }
+            Interop.LSA_UNICODE_STRING dcName = new Interop.LSA_UNICODE_STRING(dc);
+            uint ntsResult = Interop.LsaOpenPolicy(ref dcName, ref aObjectAttributes, (uint)Interop.LSA_AccessPolicy.POLICY_ALL, out IntPtr LsaPolicyHandle);
+            checkNTstatus(ntsResult, "LsaOpenPolicy");
 
             return LsaPolicyHandle;
 
@@ -392,8 +357,7 @@ namespace BackupKeyManager
         {
 
             Console.WriteLine("[+] BackupKey size: {0}", dpapiDomainBackupBytes.Length);
-            Interop.DOMAIN_BACKUP_KEY dpapiDomainBackupKey;
-            dpapiDomainBackupKey = bkpcast(dpapiDomainBackupBytes);
+            Interop.DOMAIN_BACKUP_KEY dpapiDomainBackupKey = ByteToDomainBackupKey(dpapiDomainBackupBytes);
 
             if (!validateBackupKeyHeader(dpapiDomainBackupKey))
             {
@@ -516,41 +480,44 @@ namespace BackupKeyManager
                 fileOutput(bkpCertGuid, certificateDERformat, ".der");
             }
 
+            
             Console.WriteLine("\r\n[+] Validating certificate format");
 
+            int certValidationsNum = 7;
+            String[] certError = new string[certValidationsNum];
+            if (certSubjectStr.ToLower() != domainName.ToLower()) { certError[0] = "Subject should be identical to targeted Domain name"; }
+            else if ((subjectPublicKeyInfoRSAKey.ToByteArray().Length - 1) * 8 != 2048) { certError[1] = "Public key must be of 2048 bit in length"; }
+            else if (signatureAlgorithmOID != "1.3.14.3.2.29") { certError[2] = "Signature algorithm must be 1.3.14.3.2.29 Oddball OIW"; }
+            else if (certNotBefore.AddYears(1) != certNotAfter) { certError[3] = "Certificate validity should be 365 days"; }
+            else if (certVersionByte[0] != 0x2) { certError[4] = "Certificate version should be 3 (0x2)"; }
+            else if (!CertGuidByte1.SequenceEqual(CertGuidByte2)) { certError[5] = "Subject UniqueID and Issuer UniqueID should be identical"; }
+            else if (certIssuerStr != certSubjectStr) { certError[6] = "Issuer should be identical to Subject"; }
 
-            if (certSubjectStr.ToLower() != domainName.ToLower())
+            for (int i = 0; i < certValidationsNum; i++)
             {
-                Console.WriteLine("[!] ERROR: Certificate domain and targeted domain are different!");
-                return Guid.Empty;
+                if (certError[i] != null)
+                {
+                    Console.WriteLine("[!] ERROR: Certificate format validation failed!");
+                    foreach (var errMsg in certError)
+                    {
+                        Console.WriteLine("    [!] {0}", errMsg);
+                        return Guid.Empty;
+                    }
+                }
             }
-            if (
-                (subjectPublicKeyInfoRSAKey.ToByteArray().Length - 1) * 8 == 2048
-                && signatureAlgorithmOID == "1.3.14.3.2.29"
-                && certNotBefore.AddYears(1) == certNotAfter
-                && certVersionByte[0] == 0x2
-                && CertGuidByte1.SequenceEqual(CertGuidByte2)
-                && certIssuerStr == certSubjectStr
-                )
-            {
-                return bkpCertGuid;
-            }
-            Console.WriteLine("[!] ERROR: Certificate format validation failed!");
-
-
-
-            return Guid.Empty;
+            
+            return bkpCertGuid;
         }
 
         public static X500DistinguishedName buildDNforBkp(string domainName)
         {
-            var domainNameForBkp = domainName + "\0";  // For some reaso domain name, stored with trailing null
-            var domainNameUnicode = Encoding.Convert(Encoding.Default, Encoding.Unicode, Encoding.Default.GetBytes(domainNameForBkp));
-
 
             // We have to make a trick to build a similar BackupKey certificate DN.
-            // The standard way fails, so we are going to build it as RAW bytes array.
-            // The structure below will be both Issuer and Subject
+            // The standard way fails to recreate the same Microsoft's Backup key DN as the modern class creates
+            // the PrintableString of the subject without Unicode encoding and without trailing null.
+            // 
+            // So we are going to build the DN as RAW a bytes array where we include the trailing null and encode it with Unicode.
+            // The structure below will be place both to the Issuer and Subject
 
             // byte SEQUENCE (0x30)
             // byte SEQUENCE Length (0xXX) - length of set + sequence below
@@ -566,6 +533,8 @@ namespace BackupKeyManager
             //              byte[domainNameUnicode.Length] domainNameUnicode
 
 
+            var domainNameForBkp = domainName + "\0";  // For some reaso domain name, stored with trailing null
+            var domainNameUnicode = Encoding.Convert(Encoding.Default, Encoding.Unicode, Encoding.Default.GetBytes(domainNameForBkp)); // Observed Backup key certificate DN encoded with Unicode.
 
             byte[] cnAsn = { 0x06, 0x03, 0x55, 0x04, 0x03 }; // ASN Bytes for commonName
 
@@ -642,7 +611,7 @@ namespace BackupKeyManager
             return asnResult;
         }
 
-        public static Interop.DOMAIN_BACKUP_KEY bkpcast(byte[] domainBackupKeyBytes)
+        public static Interop.DOMAIN_BACKUP_KEY ByteToDomainBackupKey(byte[] domainBackupKeyBytes)
         {
             //Inspired by: https://stackoverflow.com/questions/3278827/how-to-convert-a-structure-to-a-byte-array-in-c
 
@@ -687,10 +656,9 @@ namespace BackupKeyManager
             else
             {
                 Console.WriteLine("\r\n[!] ERROR: Domain Controller {0}, is not a full domain controller DNS name", DomainController);
-                System.Environment.Exit(1); // We rely on the domain controller FQDN when we call this function.
+                throw new InvalidOperationException("The provided domain controller is not a DNS name"); // We rely on the domain controller FQDN when we call this function.
                 
             }
-            return null;
 
         }
 
@@ -762,11 +730,6 @@ namespace BackupKeyManager
                                                 {
                                                     SetPreferredBackupKeyByGUID(LsaPolicyHandle, BackupKeyGUID);
                                                 }
-                                            else
-                                                {
-                                                    Console.WriteLine("[!] ERROR: Setting preferred backupkey operation failed.");
-                                                    return 1;
-                                                }
                                                 Interop.LsaClose(LsaPolicyHandle);
                                                 return 0; 
                                             },
@@ -781,8 +744,10 @@ namespace BackupKeyManager
                                                     Console.WriteLine("[!] ERROR: BackupKey generation failed.");
                                                     return 1;
                                                 }    
-                                                if (opts.push && !String.IsNullOrEmpty(opts.DomainController))
+                                                if (opts.push)
                                                 {
+                                                    if (String.IsNullOrEmpty(opts.DomainController))
+                                                    { throw new ArgumentException("You must provide Domain Controller to push to"); }
                                                     IntPtr LsaPolicyHandle = Initialize(opts.DomainController);
                                                     IntPtr BackupKeyHandle = IntPtr.Zero;
                                                     BackupKeyHandle = CreateNewBackupKey(LsaPolicyHandle, BackupKeyGUID);
@@ -807,28 +772,27 @@ namespace BackupKeyManager
                                                     return 1;
                                                 }
                                                 IntPtr LsaPolicyHandle = Initialize(opts.DomainController);
-                                                Console.WriteLine("[+] Checking that we will not overwrite exisitng backup key...");
-                                                IntPtr BackupKeyHandle = GetBackupKeyHandleByGuid(LsaPolicyHandle, BackupKeyGUID);
-                                                if (BackupKeyHandle == IntPtr.Zero)
+                                                Console.WriteLine("\r\n[+] Checking that we will not overwrite exisitng backup key...");
+                                                IntPtr BackupKeyHandle = IntPtr.Zero;
+                                                BackupKeyHandle = GetBackupKeyHandleByGuid(LsaPolicyHandle, BackupKeyGUID, true);
+                                                if (BackupKeyHandle != IntPtr.Zero)
                                                 {
-                                                    BackupKeyHandle = CreateNewBackupKey(LsaPolicyHandle, BackupKeyGUID);
-                                                    SetBackupKeyValue(BackupKeyHandle, BackupKeyBytes);
-                                                    if (opts.set)
-                                                    {
-                                                        SetPreferredBackupKeyByGUID(LsaPolicyHandle, BackupKeyGUID);
-                                                    }
+                                                    throw new ArgumentException("The backup key you are trying to push already exists.");
                                                 }
-                                                else
-                                                {
-                                                    Console.WriteLine("[!] ERROR: The backup key you are trying to push already exists!");
-                                                    return 1;
-                                                }
+                                                BackupKeyHandle = CreateNewBackupKey(LsaPolicyHandle, BackupKeyGUID);
+                                                SetBackupKeyValue(BackupKeyHandle, BackupKeyBytes);
+                                                if (opts.set)
+                                                  {
+                                                     SetPreferredBackupKeyByGUID(LsaPolicyHandle, BackupKeyGUID);
+                                                  }
                                                 Interop.LsaClose(BackupKeyHandle);
                                                 Interop.LsaClose(LsaPolicyHandle);
              
                                                 return 0;
                                             },
                                             errors => 1);
+
+            Console.WriteLine("\r\n[+] Operation completed successfully!");
         }
 
     
