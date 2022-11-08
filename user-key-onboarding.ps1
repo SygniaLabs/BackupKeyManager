@@ -148,6 +148,9 @@ function Expire-MasterKey {
 }
 
 
+
+
+
 function Rename-BKPublic {
     param(
     [Parameter (Mandatory = $true)] [String]$mkPath
@@ -241,7 +244,7 @@ function Invoke-BkpOnboard {
             $adconnection = Test-Connection -ComputerName $env:USERDNSDOMAIN -Protocol DCOM -Count 2 -Quiet;
             if (-Not $adconnection){
                 Write-Output ("[!] Cannot reach the Active Directory, exiting!");
-                exit;
+                return;
             }
         
 
@@ -268,8 +271,7 @@ function Invoke-BkpOnboard {
             Start-Sleep -Seconds 2 # Wait for DPAPI operation.
             
 
-            # List new Master keys
-            #Get-ChildItem -Path $mkLocation -Hidden | sort LastWriteTime -Descending;
+            # TBD check that BK-XXX was fetched, otherwise user will fallback to use legacy key.
 
 
             Write-Output ("");

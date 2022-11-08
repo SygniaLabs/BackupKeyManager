@@ -361,3 +361,5 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+/bkrp_test/tmp_x64_Release_bkrp_test
+/bkrp_test/bkrp_test_x64.exe

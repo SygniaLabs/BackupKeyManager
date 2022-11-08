@@ -17,13 +17,31 @@ For more information and the research behind this tool you can visit our blogpos
 
 ## Usage
 
-The tool's help provides information on what and how you can use it.
+This repository contains three projects:
+* BackupKeyManager - The main Backup Key modification tool (C#)
+* bkrp_test - A utility to check that your backup key is healthy (C)
+* user-key-onboarding - A utility to onboard existing AD users to the domain backup key (PS)
+
+### Create and onboard new DPAPI Backup key flow:
+
+1. First, you will have to use the BackupKeyManager to create and prefer a new backup key in the domain (Write down the generated GUID).
+2. A restart will be required to the DC as we must reload the LSASS process.
+3. Use the bkrp_test and verify that the certificate's GUID being served is identical to the one generated during step #1.
+4. From a domain user context, execute the user-key-onboarding with either the soft or forced method. Note which user Master keys are using the new backup key (Compare GUID).
+5. Repeat step #4 for every user you would like to onboard to the new key.
+
+
+
+
+## BackupKeyManager
+
+The BackupKeyManager tool provides information on what and how you can use it.
 There are few verbs alongside with specific flags you can set according to your needs.
 
 ### List verbs:
 
 ```
-C:\DPAPI-BackupKeyManager>BackupKeyManager.exe --help
+C:\BackupKeyManager>BackupKeyManager.exe --help
 BackupKeyManager 1.0.0.0
 Copyright c  2022
 
@@ -48,7 +66,7 @@ Copyright c  2022
 ### List specific verb's flags:
 
 ```
-C:\DPAPI-BackupKeyManager>BackupKeyManager.exe GenerateNewBackupKey --help
+C:\BackupKeyManager>BackupKeyManager.exe GenerateNewBackupKey --help
 BackupKeyManager 1.0.0.0
 Copyright c  2022
 
@@ -72,7 +90,7 @@ Copyright c  2022
 ### Get information about the currently active (preferred) BackupKey:
 
 ```
-C:\DPAPI-BackupKeyManager>BackupKeyManager.exe GetPreferredBackupKey -s dc.thedomain.local --analyze
+C:\BackupKeyManager>BackupKeyManager.exe GetPreferredBackupKey -s dc.thedomain.local --analyze
 
 [+] Setting up connection with Domain Controller: dc.thedomain.local
 [+] Getting backup key     : G$BCKUPKEY_8de8723b-8609-4bd0-89c3-55c512949356
@@ -104,7 +122,7 @@ C:\DPAPI-BackupKeyManager>BackupKeyManager.exe GetPreferredBackupKey -s dc.thedo
 ### Generate new BackupKey and use it as the preferred BackupKey :
 
 ```
-C:\DPAPI-BackupKeyManager>BackupKeyManager.exe GenerateNewBackupKey -d thedomain.local -s dc.thedomain.local --set --push
+C:\BackupKeyManager>BackupKeyManager.exe GenerateNewBackupKey -d thedomain.local -s dc.thedomain.local --set --push
 
 [+] Generated Guid: d799cd2d-8ac2-4242-aa5b-697eb6d4a613
 
@@ -137,6 +155,33 @@ C:\DPAPI-BackupKeyManager>BackupKeyManager.exe GenerateNewBackupKey -d thedomain
 [+] Setting BackupKey value...
 [+] BackupKey value was set successfully!
 [+] Modified preferred backup GUID to: d799cd2d-8ac2-4242-aa5b-697eb6d4a613
+```
+
+
+
+## bkrp_test
+
+The BackupKeyManager tool provides information on what and how you can use it.
+There are few verbs alongside with specific flags you can set according to your needs.
+
+### Usage:
+
+```
+C:\BackupKeyManager\bkrp_test>bkrp_test_x64.exe
+Usage: bkrp_test_x64.exe <DC>
+
+```
+
+### Get the domain served Backupkey GUID:
+
+```
+C:\BackupKeyManager\bkrp_test>bkrp_test_x64.exe dc.thedomain.local
+[+] Retrieving the current BackupKey public certificate
+   > Certificate size: 768
+   > Guid: d799cd2d-8ac2-4242-aa5b-697eb6d4a613
+    > Attempting secret encrypt (MySecret!).... OK
+    > Attempting secret decrypt.... OK -> MySecret!
+
 ```
 
 
