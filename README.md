@@ -24,7 +24,7 @@ This repository contains three projects:
 
 ### Create and onboard new DPAPI Backup key flow:
 
-1. First, you will have to use the BackupKeyManager to create and prefer a new backup key in the domain (Write down the generated GUID).
+1. First, you will have to use the BackupKeyManager to create and prefer a new backup key in the domain (Note to write down the generated GUID).
 2. A restart will be required to the DC as we must reload the LSASS process.
 3. Use the bkrp_test and verify that the certificate's GUID being served is identical to the one generated during step #1.
 4. From a domain user context, execute the user-key-onboarding with either the soft or forced method. Note which user Master keys are using the new backup key (Compare GUID).
@@ -35,8 +35,10 @@ This repository contains three projects:
 
 ## BackupKeyManager
 
-The BackupKeyManager tool provides information on what and how you can use it.
+The BackupKeyManager help provides information on what and how you can use it.
 There are few verbs alongside with specific flags you can set according to your needs.
+It is important to use this tool together with the Primary domain controller (PDC).
+Privileges required: Domain Admin.
 
 ### List verbs:
 
@@ -161,8 +163,10 @@ C:\BackupKeyManager>BackupKeyManager.exe GenerateNewBackupKey -d thedomain.local
 
 ## bkrp_test
 
-The BackupKeyManager tool provides information on what and how you can use it.
-There are few verbs alongside with specific flags you can set according to your needs.
+The bkrp_test utility provides information on the Backup key certificate and checks that it fucntions.
+It outputs the certificate size, GUID, and checks whether the server (DC) can encrypt and decrypt data using the current Backupkey.
+To be consistent, it is reccomended to run this key against all DCs.
+Privileges required: Domain User.
 
 ### Usage:
 
