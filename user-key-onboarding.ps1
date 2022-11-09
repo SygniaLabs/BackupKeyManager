@@ -229,12 +229,7 @@ function Invoke-BkpOnboard {
         }
 
 
-
-
-
-
-
-        
+       
         if (($Mode -eq "Soft") -or ($Mode -eq "Forced"))
         {          
                        
@@ -286,7 +281,7 @@ function Invoke-BkpOnboard {
             Write-Output ("");
             if ($initialMkMap[0].Backup_Guid -eq $newMkMap[0].Backup_Guid)
             {
-                Write-Output ("[?] Looks like your the user already has Master keys onboarded to this Backup key: " + $newMkMap[0].Backup_Guid);
+                Write-Output ("[?] Looks like user has Master keys already onboarded to this Backup key: " + $newMkMap[0].Backup_Guid);
                 $newMkMap | Where-Object {$_.Backup_Guid -eq $newMkMap[0].Backup_Guid}
             }
             else

@@ -65,28 +65,6 @@ namespace BackupKeyManager
             }
         }
 
-        public enum KERB_ETYPE : UInt32
-        {
-            des_cbc_crc = 1,
-            des_cbc_md4 = 2,
-            des_cbc_md5 = 3,
-            des3_cbc_md5 = 5,
-            des3_cbc_sha1 = 7,
-            dsaWithSHA1_CmsOID = 9,
-            md5WithRSAEncryption_CmsOID = 10,
-            sha1WithRSAEncryption_CmsOID = 11,
-            rc2CBC_EnvOID = 12,
-            rsaEncryption_EnvOID = 13,
-            rsaES_OAEP_ENV_OID = 14,
-            des_ede3_cbc_Env_OID = 15,
-            des3_cbc_sha1_kd = 16,
-            aes128_cts_hmac_sha1 = 17,
-            aes256_cts_hmac_sha1 = 18,
-            rc4_hmac = 23,
-            rc4_hmac_exp = 24,
-            subkey_keymaterial = 65
-        }
-
         public enum LSA_AccessPolicy : long
         {
             POLICY_VIEW_LOCAL_INFORMATION = 0x00000001L,
@@ -146,29 +124,6 @@ namespace BackupKeyManager
                 return Marshal.PtrToStringUni(buffer);
             }
         }
-
-        [Flags]
-        public enum DSGETDCNAME_FLAGS : uint
-        {
-            DS_FORCE_REDISCOVERY = 0x00000001,
-            DS_DIRECTORY_SERVICE_REQUIRED = 0x00000010,
-            DS_DIRECTORY_SERVICE_PREFERRED = 0x00000020,
-            DS_GC_SERVER_REQUIRED = 0x00000040,
-            DS_PDC_REQUIRED = 0x00000080,
-            DS_BACKGROUND_ONLY = 0x00000100,
-            DS_IP_REQUIRED = 0x00000200,
-            DS_KDC_REQUIRED = 0x00000400,
-            DS_TIMESERV_REQUIRED = 0x00000800,
-            DS_WRITABLE_REQUIRED = 0x00001000,
-            DS_GOOD_TIMESERV_PREFERRED = 0x00002000,
-            DS_AVOID_SELF = 0x00004000,
-            DS_ONLY_LDAP_NEEDED = 0x00008000,
-            DS_IS_FLAT_NAME = 0x00010000,
-            DS_IS_DNS_NAME = 0x00020000,
-            DS_RETURN_DNS_NAME = 0x40000000,
-            DS_RETURN_FLAT_NAME = 0x80000000
-        }
-        public delegate int KERB_ECRYPT_HashPassword(UNICODE_STRING Password, UNICODE_STRING Salt, int count, byte[] output);
 
         // for remote backup key retrieval
         [DllImport("advapi32.dll", SetLastError = true, PreserveSig = true)]

@@ -94,13 +94,6 @@ namespace BackupKeyManager
             [Option("set", Required = false, HelpText = "Set the imported backup key as the Preferred Backupkey.")]
             public bool set { get; set; }
         }
-        
-        [Verb("Verify", HelpText = "[TBD] Verify that all DCs serve the currently preferred backup GUID")]
-        class Verify_Opts
-        {
-            [Option('d', "domain", Required = false, HelpText = "Specify the targeted domain to verify")]
-            public string domain { get; set; }
-        }
 
 
         // Backup Key Cosntants
