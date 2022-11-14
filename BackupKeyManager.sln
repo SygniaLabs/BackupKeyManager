@@ -1,9 +1,12 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.2.32616.157
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.32602.291
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BackupKeyManager", "BackupKeyManager\BackupKeyManager.csproj", "{F53BF4B8-1027-436C-9E3B-76DF80C0F022}"
+	ProjectSection(ProjectDependencies) = postProject
+		{34321A13-743E-44C9-BD15-836ABE802738} = {34321A13-743E-44C9-BD15-836ABE802738}
+	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{2FAC8D88-2334-4BB3-8445-C0C62023DF57}"
 	ProjectSection(SolutionItems) = preProject
@@ -12,6 +15,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "bkrp_test", "bkrp_test\bkrp_test.vcxproj", "{B2DF26C2-5DFF-44CF-B526-FC32CAF3B8A2}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ExampleDLL", "ExampleDLL\ExampleDLL.vcxproj", "{34321A13-743E-44C9-BD15-836ABE802738}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -47,6 +52,16 @@ Global
 		{B2DF26C2-5DFF-44CF-B526-FC32CAF3B8A2}.Release|x64.Build.0 = Release|x64
 		{B2DF26C2-5DFF-44CF-B526-FC32CAF3B8A2}.Release|x86.ActiveCfg = Release|Win32
 		{B2DF26C2-5DFF-44CF-B526-FC32CAF3B8A2}.Release|x86.Build.0 = Release|Win32
+		{34321A13-743E-44C9-BD15-836ABE802738}.Debug|Any CPU.ActiveCfg = Debug|Win32
+		{34321A13-743E-44C9-BD15-836ABE802738}.Debug|x64.ActiveCfg = Debug|x64
+		{34321A13-743E-44C9-BD15-836ABE802738}.Debug|x64.Build.0 = Debug|x64
+		{34321A13-743E-44C9-BD15-836ABE802738}.Debug|x86.ActiveCfg = Debug|Win32
+		{34321A13-743E-44C9-BD15-836ABE802738}.Debug|x86.Build.0 = Debug|Win32
+		{34321A13-743E-44C9-BD15-836ABE802738}.Release|Any CPU.ActiveCfg = Release|Win32
+		{34321A13-743E-44C9-BD15-836ABE802738}.Release|x64.ActiveCfg = Release|x64
+		{34321A13-743E-44C9-BD15-836ABE802738}.Release|x64.Build.0 = Release|x64
+		{34321A13-743E-44C9-BD15-836ABE802738}.Release|x86.ActiveCfg = Release|Win32
+		{34321A13-743E-44C9-BD15-836ABE802738}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

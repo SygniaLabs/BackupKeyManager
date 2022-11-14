@@ -1,0 +1,6 @@
+LIBRARY ExampleDLL
+
+EXPORTS
+	example	@1
+	example2 @2
+	example3 @3
