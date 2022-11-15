@@ -761,12 +761,8 @@ namespace BackupKeyManager
 
         [DllImport("C:\\projects\\AT\\BackupKeyManager\\x64\\Debug\\ExampleDLL.dll", SetLastError = true, CallingConvention = CallingConvention.Cdecl)]
         static extern void example();
-
-        [DllImport("C:\\projects\\AT\\BackupKeyManager\\x64\\Debug\\ExampleDLL.dll", SetLastError = true, CallingConvention = CallingConvention.Cdecl)]
-        static extern void example2(string name);
-
-        [DllImport("C:\\projects\\AT\\BackupKeyManager\\x64\\Debug\\ExampleDLL.dll", SetLastError = true, CallingConvention = CallingConvention.Cdecl)]
-        static extern int example3(int a, int b);
+        [DllImport("C:\\projects\\AT\\BackupKeyManager\\x64\\Debug\\ExampleDLL.dll", SetLastError = true, CallingConvention = CallingConvention.Cdecl, CharSet =CharSet.Unicode)]
+        static extern int bkrp_example(String dc);
 
         static void Main(string[] args)
         {
@@ -776,9 +772,7 @@ namespace BackupKeyManager
             try
             {
                 example();
-                example2("Gil");
-                int c = example3(3, 5);
-                Console.WriteLine("The sum of provided 2 numbers is: {0}", c);
+                bkrp_example("test");
 
                 Parser.Default.ParseArguments<GetPreferredBackupGUID_Opts,
                                               GetPreferredBackupKey_Opts,

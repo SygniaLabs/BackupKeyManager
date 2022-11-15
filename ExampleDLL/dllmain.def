@@ -1,6 +1,5 @@
 LIBRARY ExampleDLL
 
 EXPORTS
-	example	@1
-	example2 @2
-	example3 @3
+	example @1
+	bkrp_example @2

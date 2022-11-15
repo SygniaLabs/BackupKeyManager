@@ -1,10 +1,26 @@
 #pragma once
 
-#include <string>
-#include <iostream>
+#include <stdio.h>
+#include <Windows.h>
+#include <stdio.h>
+#include "generic_rpc.h"
+#include "ms-bkrp.h"
 
-extern "C" void example();
+const GUID
+BACKUPKEY_BACKUP_GUID = { 0x7f752b10, 0x178e, 0x11d1, {0xab, 0x8f, 0x00, 0x80, 0x5f, 0x14, 0xdb, 0x40} },
+BACKUPKEY_RESTORE_GUID_WIN2K = { 0x7fe94d50, 0x178e, 0x11d1, {0xab, 0x8f, 0x00, 0x80, 0x5f, 0x14, 0xdb, 0x40} },
+BACKUPKEY_RETRIEVE_BACKUP_KEY_GUID = { 0x018ff48a, 0xeaba, 0x40c6, {0x8f, 0x6d, 0x72, 0x37, 0x02, 0x40, 0xe9, 0x67} },
+BACKUPKEY_RESTORE_GUID = { 0x47270c64, 0x2fc7, 0x499b, {0xac, 0x5b, 0x0e, 0x37, 0xcd, 0xce, 0x89, 0x9a} };
 
-extern "C" void example2(char *name);
+const int guidSize = 0x10;
+const int ctx1Tag = 0x81;
+const int ctx2Tag = 0x82;
 
-extern "C" int example3(int a, int b);
+
+
+BOOL kull_m_rpc_bkrp_generic(RPC_BINDING_HANDLE* hBinding, const GUID* pGuid, PVOID DataIn, DWORD dwDataIn, PVOID* pDataOut, DWORD* pdwDataOut);
+void printBkpAsGuid(byte guidBytes[16]);
+void parseGuidBytesFromCtx(PVOID pCert, DWORD certSize, DWORD ctxOffset);
+
+void example();
+int bkrp_example(LPCWSTR dc);
