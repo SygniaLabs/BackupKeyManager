@@ -22,5 +22,6 @@ BOOL kull_m_rpc_bkrp_generic(RPC_BINDING_HANDLE* hBinding, const GUID* pGuid, PV
 void printBkpAsGuid(byte guidBytes[16]);
 void parseGuidBytesFromCtx(PVOID pCert, DWORD certSize, DWORD ctxOffset);
 
-void example();
-int bkrp_example(LPCWSTR dc);
+BOOL get_bkrp_cert(LPCWSTR dc, intptr_t *pDataOut, DWORD *dwDataOut);
+BOOL bkrp_test(LPCWSTR dc);
+void free_bkrp(void* pBuffer);

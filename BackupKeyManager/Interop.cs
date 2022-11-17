@@ -178,5 +178,19 @@ namespace BackupKeyManager
             IntPtr buffer
         );
 
+
+        [DllImport("ExampleDLL.dll", SetLastError = true, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        public static extern bool get_bkrp_cert(
+        String dc,
+        ref IntPtr pDataOut,
+        ref int pDataSize
+        );
+
+        [DllImport("ExampleDLL.dll", SetLastError = true, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        public static extern bool bkrp_test(String dc);
+
+        [DllImport("ExampleDLL.dll", SetLastError = true)]
+        public static extern void free_bkrp(IntPtr ptr);
+
     }
 }

@@ -95,6 +95,19 @@ namespace BackupKeyManager
             public bool set { get; set; }
         }
 
+        [Verb("Check", HelpText = "Checks that the Backup Key being served to clients by the DC (via MS-BKRP) is synced with the preferred Backup Key (via MS-LSAD).")]
+        class CheckBackupKey_Opts
+        {
+            [Option('s', "DomainController", Required = true, HelpText = "Primary Domain Controller DNS Address to interact with. This check should be made against all DCs in the domain.")]
+            public string DomainController { get; set; }
+
+            [Option("validate", Required = false, HelpText = "Validates that the BackupKey protocol is functionning well.")]
+            public bool validate { get; set; }
+            
+            [Option("analyze", Required = false, HelpText = "Analyze the exported BackupKey certificate")]
+            public bool analyze { get; set; }
+        }
+
 
         // Backup Key Cosntants
         private static readonly uint BackupKeyVersion = 2;
@@ -411,8 +424,11 @@ namespace BackupKeyManager
             int certificateSize = Convert.ToInt32(dpapiDomainBackupKey.certificateLength);
             byte[] certificateDERformat = new byte[certificateSize];
             Marshal.Copy(dpapiDomainBackupKey.certificatePtr, certificateDERformat, 0, certificateSize);
-
-
+            return analyzeDERCertificate(certificateDERformat, domainName, outFile);
+        }
+        
+        public static Guid analyzeDERCertificate(byte[] certificateDERformat, string domainName, bool outFile = false)
+        { 
 
             Console.WriteLine("\r\n[+] Analyzing certificate information:");
             var certASN = new AsnReader(certificateDERformat, AsnEncodingRules.DER);
@@ -759,10 +775,6 @@ namespace BackupKeyManager
         }
 
 
-        [DllImport("C:\\projects\\AT\\BackupKeyManager\\x64\\Debug\\ExampleDLL.dll", SetLastError = true, CallingConvention = CallingConvention.Cdecl)]
-        static extern void example();
-        [DllImport("C:\\projects\\AT\\BackupKeyManager\\x64\\Debug\\ExampleDLL.dll", SetLastError = true, CallingConvention = CallingConvention.Cdecl, CharSet =CharSet.Unicode)]
-        static extern int bkrp_example(String dc);
 
         static void Main(string[] args)
         {
@@ -770,16 +782,16 @@ namespace BackupKeyManager
             IntPtr BackupKeyHandle = IntPtr.Zero;
 
             try
-            {
-                example();
-                bkrp_example("test");
+            {              
+
 
                 Parser.Default.ParseArguments<GetPreferredBackupGUID_Opts,
                                               GetPreferredBackupKey_Opts,
                                               GetBackupKeyByGUID_Opts,
                                               SetPreferredBackupKeyByGUID_Opts,
                                               GenerateNewBackupKey_Opts,
-                                              CreateBackupKeyFromFile_Opts>
+                                              CreateBackupKeyFromFile_Opts,
+                                              CheckBackupKey_Opts>
                                               (args)
                                               .MapResult(
                                                 (GetPreferredBackupGUID_Opts opts) =>
@@ -869,24 +881,64 @@ namespace BackupKeyManager
                                                     }
                                                     return 0;
                                                 },
+
+                                                (CheckBackupKey_Opts opts) =>
+                                                {
+                                                    LsaPolicyHandle = Initialize(opts.DomainController);
+                                                    Guid currentGuid = GetPreferredBackupGUID(LsaPolicyHandle);
+
+                                                    IntPtr BkrpCertPtr = IntPtr.Zero;
+                                                    int BkrpCertSize = 0;
+
+                                                    if (Interop.get_bkrp_cert(opts.DomainController, ref BkrpCertPtr, ref BkrpCertSize))
+                                                    {
+                                                        byte[] crtByteTest = new byte[BkrpCertSize];
+                                                        Marshal.Copy(BkrpCertPtr, crtByteTest, 0, BkrpCertSize);
+                                                        Interop.free_bkrp(BkrpCertPtr);
+
+                                                        string domainName = dcToDomain(opts.DomainController);
+                                                        Guid BkrpCertGuid = analyzeDERCertificate(crtByteTest, domainName, false);
+
+                                                        Console.WriteLine("\r\n[+] Comparing BackupKey Guid...");
+                                                        if (currentGuid == BkrpCertGuid) {
+                                                            Console.WriteLine("SUCCESS! The serviced Backup Key (via MS-BKRP) and the preferred Backup key (via MS-LSAD) are synced");
+                                                        }
+                                                        else {
+                                                            Console.WriteLine("ERROR! Try to restart the DC and repeat this check.");
+                                                        }
+                                                    }
+
+                                                    else {
+                                                        throw new InvalidOperationException("Error calling get_bkrp_cert function. Make sure to specify valid and reachable DC hostname.");
+                                                    }
+
+                                                    if (opts.validate) {
+                                                        if (Interop.bkrp_test(opts.DomainController)) {
+                                                            Console.WriteLine("\r\n[+] MS-BKRP Encrypt-Decrypt secret passed!");
+                                                        }
+                                                        else {
+                                                            Console.WriteLine("\r\n[!] MS-BKRP is not healthy. Try to revert to the original backup key via SetPreferredBackupKeyByGUID and restart the DC.");
+                                                        }
+                                                    }
+
+                                                    return 0;
+
+                                                },
                                                 errors => 1);
 
                 Console.WriteLine("\r\n[+] Operation completed successfully!");
             }
             
-            catch(Exception e)
-            {
-                Console.WriteLine("\r\n[!] An error occured during the operation");
+            catch(Exception e) {
+                Console.WriteLine("\r\n[!] An error occured during the operation: {0}", e);
             }
             
-            finally
-            {
-                if (LsaPolicyHandle != IntPtr.Zero)
-                {
+            finally {
+                if (LsaPolicyHandle != IntPtr.Zero) {
                     Interop.LsaClose(LsaPolicyHandle);
                 }
-                if (BackupKeyHandle != IntPtr.Zero)
-                {
+                
+                if (BackupKeyHandle != IntPtr.Zero) {
                     Interop.LsaClose(BackupKeyHandle);
                 }                
             }
