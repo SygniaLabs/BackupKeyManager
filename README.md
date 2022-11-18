@@ -17,19 +17,18 @@ For more information and the research behind this tool you can visit our blogpos
 
 ## Usage
 
-This repository contains three projects:
-* BackupKeyManager - The main Backup Key modification tool (C#)
-* bkrp_test - A utility to check that your backup key is healthy (C)
+This repository contains two projects:
+* BackupKeyManager - The main Backup Key modification tool (C#) + MS-BKRP dpendency DLL (C)
 * user-key-onboarding - A utility to onboard existing AD users to the domain backup key (PS)
 
 ### Create and onboard new DPAPI Backup key flow:
 
-1. First, you will have to use the BackupKeyManager to create and prefer a new backup key in the domain (Note to write down the generated GUID).
-2. A restart will be required to the DC as we must reload the LSASS process.
-3. Use the bkrp_test and verify that the certificate's GUID being served is identical to the one generated during step #1.
-4. From a domain user context, execute the user-key-onboarding with either the soft or forced method. Note which user Master keys are using the new backup key (Compare GUID).
-5. Repeat step #4 for every user you would like to onboard to the new key.
-
+1. First, you will have to use the BackupKeyManager to extract the currently used (preferred) BackupKey. Write Down its GUID in case you will need to revert back to it.
+2. Use the BackupKeyManager to create and prefer a new backup key in the domain (Note to write down the generated GUID).
+3. A restart will be required to the DC as we must reload the LSASS process.
+4. Use the BackupKeyManager to validate that the certificate's GUID being served is identical to the one generated during step #1.
+5. From a domain user context, execute the user-key-onboarding with either the soft or forced method. Note which user Master keys are using the new backup key (Compare GUID).
+6. Repeat step #4 for every user you would like to onboard to the new key.
 
 
 
@@ -38,7 +37,20 @@ This repository contains three projects:
 The BackupKeyManager help provides information on what and how you can use it.
 There are few verbs alongside with specific flags you can set according to your needs.
 It is important to use this tool together with the Primary domain controller (PDC).
-Privileges required: Domain Admin.
+
+### Verbs required privileges
+Domain Admin privileges required for:
+- GetPreferredBackupKey
+- GetBackupKeyByGUID
+- SetPreferredBackupKeyByGUID
+- GenerateNewBackupKey (Only when using the push flag)
+- BackupKeyFromFile (Only when using the push flag)
+- Validate
+
+Any Domain User privileges required for:
+- Fetch
+
+
 
 ### List verbs:
 
@@ -46,8 +58,6 @@ Privileges required: Domain Admin.
 C:\BackupKeyManager>BackupKeyManager.exe --help
 BackupKeyManager 1.0.0.0
 Copyright c  2022
-
-  GetPreferredBackupGUID         Extract the GUID of the preferred (current) backup key
 
   GetPreferredBackupKey          Extract the preferred (current) backup key
 
@@ -57,12 +67,20 @@ Copyright c  2022
 
   GenerateNewBackupKey           Generate GUID and new backup key with option to push and set as preferred.
 
-  PushBackupKeyFromFile          Push new backup key from file. InputFile is required.
+  BackupKeyFromFile              Load Backup key from file with option to push it and set it as preferred.
+
+  Validate                       Validates that the Backup Key was setup correctly and will be served to clients
+                                 according to the Preferred Backup key. This check should be made against all DCs in the
+                                 domain.
+
+  Fetch                          Fetch the public Backup key certificate via MS-BKRP (Non-Admin operation).
 
   help                           Display more information on a specific command.
 
   version                        Display version information.
 
+
+[+] Operation completed
 ```
 
 ### List specific verb's flags:
@@ -72,122 +90,153 @@ C:\BackupKeyManager>BackupKeyManager.exe GenerateNewBackupKey --help
 BackupKeyManager 1.0.0.0
 Copyright c  2022
 
-  -d, --DomainName          Required. FQDN of the required domain. This will be included in the public key part.
+  -d, --DomainName          Required. (Required) FQDN of the required domain. This will be included in the public
+                            certificate.
 
-  -o, --OutputFile          Dump Backupkey and certificate DER format outputs to files
+  -o, --OutputFile          (Optional) Dump Backupkey and certificate DER format outputs to files
 
-  -s, --DomainController    Primary Domain Controller DNS Address to interact with. Set this this value if you wish to
-                            use push
+  --push                    (Optional) Push the generated backup key to a Domain Controller.
 
-  --push                    Push the generated backup key to the Domain Controller.
+  -s, --DomainController    (Depend on 'push' usage) Primary Domain Controller DNS Address to interact with.
 
-  --set                     Set the generated backup key as the Preferred Backupkey. --push must be used as well.
+  --set                     (Depend on 'push' usage) Set the generated Backup key as the Preferred Backup key.
 
   --help                    Display this help screen.
 
   --version                 Display version information.
+
+
+[+] Operation completed
 ```
 
 
-### Get information about the currently active (preferred) BackupKey:
+### Get information about the currently active (preferred) BackupKey via MS-LSAD protocol (Domain Admin is required):
 
 ```
-C:\BackupKeyManager>BackupKeyManager.exe GetPreferredBackupKey -s dc.thedomain.local --analyze
+C:\BackupKeyManager>BackupKeyManager.exe GetPreferredBackupKey -s dc.domain.local --analyze
 
-[+] Setting up connection with Domain Controller: dc.thedomain.local
-[+] Getting backup key     : G$BCKUPKEY_8de8723b-8609-4bd0-89c3-55c512949356
+[+] Setting up connection with Domain Controller: dc.windomain.local
+[+] Preferred backupkey Guid         : 170e6701-8213-48ce-bf52-1be5b6f1ab1e
+[+] Getting backup key     : G$BCKUPKEY_170e6701-8213-48ce-bf52-1be5b6f1ab1e
 [+] BackupKey size: 1952
 
 [+] Validating BackupKey header...
 
 [+] Analyzing certificate information:
-[ASN] - Constructed SequenceOf: 764
-[ASN]  - Constructed SequenceOf: 488
-[ASN]  - Constructed SequenceOf: 9
-[ASN]  - BitString: 257
-[Certificate] Serial Number:     3B-72-E8-8D-09-86-D0-4B-89-C3-55-C5-12-94-93-56
+[Certificate] Serial Number:     1E-AB-F1-B6-E5-1B-52-BF-48-CE-82-13-17-0E-67-01
 [Certificate] Version:           3
-[Certificate] Issuer name:       thedomain.local
-[Certificate] Subject name:      thedomain.local
-[Certificate] Not Before:        7/8/2022 7:07:34 AM +00:00
-[Certificate] Not After:         7/8/2023 7:07:34 AM +00:00
+[Certificate] Issuer name:       domain.local
+[Certificate] Subject name:      domain.local
+[Certificate] Not Before:        7/21/2022 1:33:28 PM +00:00
+[Certificate] Not After:         7/21/2023 1:33:28 PM +00:00
 [Certificate] Validity period:   365.00:00:00
 [Certificate] SignatureAlgo OID: 1.3.14.3.2.29
 [Certificate] PublicKeyInfo OID: 1.2.840.113549.1.1.1
 [Certificate] RSA Key Size:      2048 bits
-[Certificate] Certificate Guid:  8de8723b-8609-4bd0-89c3-55c512949356
+[Certificate] Certificate Guid:  170e6701-8213-48ce-bf52-1be5b6f1ab1e
 
-[+] Validating certificate format
+[+] Validating Certificate format...
+
+[+] Operation completed
 
 ```
 
 ### Generate new BackupKey and use it as the preferred BackupKey :
 
 ```
-C:\BackupKeyManager>BackupKeyManager.exe GenerateNewBackupKey -d thedomain.local -s dc.thedomain.local --set --push
+C:\BackupKeyManager>BackupKeyManager.exe GenerateNewBackupKey -d domain.local -s dc.domain.local --set --push
 
-[+] Generated Guid: d799cd2d-8ac2-4242-aa5b-697eb6d4a613
+[+] Generated Guid: 1e2b6567-3d6c-0642-eca0-ad0aef5f1b7e
 
 [+] Generating 2048 bit RSA Key pair...
 [+] Creating certificate
 [+] Building the new Domain BackupKey...
+[+] BackupKey size: 1952
 
 [+] Analyzing certificate information:
-[ASN] - Constructed SequenceOf: 764
-[ASN]  - Constructed SequenceOf: 488
-[ASN]  - Constructed SequenceOf: 9
-[ASN]  - BitString: 257
-[Certificate] Serial Number:     2D-CD-99-D7-C2-8A-42-42-AA-5B-69-7E-B6-D4-A6-13
+[Certificate] Serial Number:     7E-1B-5F-EF-0A-AD-A0-EC-06-42-3D-6C-1E-2B-65-67
 [Certificate] Version:           3
-[Certificate] Issuer name:       thedomain.local
-[Certificate] Subject name:      thedomain.local
-[Certificate] Not Before:        7/11/2022 6:28:05 AM +00:00
-[Certificate] Not After:         7/11/2023 6:28:05 AM +00:00
+[Certificate] Issuer name:       domain.local
+[Certificate] Subject name:      domain.local
+[Certificate] Not Before:        11/18/2022 5:39:16 AM +00:00
+[Certificate] Not After:         11/18/2023 5:39:16 AM +00:00
 [Certificate] Validity period:   365.00:00:00
 [Certificate] SignatureAlgo OID: 1.3.14.3.2.29
 [Certificate] PublicKeyInfo OID: 1.2.840.113549.1.1.1
 [Certificate] RSA Key Size:      2048 bits
-[Certificate] Certificate Guid:  d799cd2d-8ac2-4242-aa5b-697eb6d4a613
+[Certificate] Certificate Guid:  1e2b6567-3d6c-0642-eca0-ad0aef5f1b7e
 
-[+] Validating certificate format
+[+] Validating BackupKey header...
 
-[+] Setting up connection with Domain Controller: dc.thedomain.local
-[+] New Backup Key to be created     : G$BCKUPKEY_d799cd2d-8ac2-4242-aa5b-697eb6d4a613
-[+] New Backup Key created successfully     : G$BCKUPKEY_d799cd2d-8ac2-4242-aa5b-697eb6d4a613
-[+] Setting BackupKey value...
-[+] BackupKey value was set successfully!
-[+] Modified preferred backup GUID to: d799cd2d-8ac2-4242-aa5b-697eb6d4a613
+[+] Validating Certificate format...
+
+[+] Setting up connection with Domain Controller: dc.domain.local
+[+] Creating Backup key with name     : G$BCKUPKEY_1e2b6567-3d6c-0642-eca0-ad0aef5f1b7e
+[+] New Backup key created successfully     : G$BCKUPKEY_1e2b6567-3d6c-0642-eca0-ad0aef5f1b7e
+[+] Writing bytes to Backup key...
+[+] Backup key uploaded successfully
+[+] Modified preferred backup GUID to: 1e2b6567-3d6c-0642-eca0-ad0aef5f1b7e
+
+[?] You must restart the targeted Domain Controller for the changes to take effect
+
+[+] Operation completed
 ```
 
+### ** Restart The targeted Domain Controller **
 
 
-## bkrp_test
-
-The bkrp_test utility provides information on the Backup key certificate and checks that it fucntions.
-It outputs the certificate size, GUID, and checks whether the server (DC) can encrypt and decrypt data using the current Backupkey.
-To be consistent, it is reccomended to run this key against all DCs.
-Privileges required: Domain User.
-
-### Usage:
+### To make sure we did not break anything we must use Validate :
+Make sure the output does not contain any error message
 
 ```
-C:\BackupKeyManager\bkrp_test>bkrp_test_x64.exe
-Usage: bkrp_test_x64.exe <DC>
+C:\BackupKeyManager>BackupKeyManager.exe Validate -s dc.domain.local
 
-```
+[+] Setting up connection with Domain Controller: dc.domain.local
+[+] Preferred Backupkey Guid         : 1e2b6567-3d6c-0642-eca0-ad0aef5f1b7e
 
-### Get the domain served Backupkey GUID:
+[+] Retrieving the current BackupKey public certificate via MS-BKRP...OK -> Certificate size: 768
+[+] MS-BKRP Serviced Backupkey Guid         : 1e2b6567-3d6c-0642-eca0-ad0aef5f1b7e
 
-```
-C:\BackupKeyManager\bkrp_test>bkrp_test_x64.exe dc.thedomain.local
-[+] Retrieving the current BackupKey public certificate
-   > Certificate size: 768
-   > Guid: d799cd2d-8ac2-4242-aa5b-697eb6d4a613
+[+] SUCCESS! The serviced Backup Key (MS-BKRP) and the Preferred Backup key (MS-LSAD) are synced
+
+[+] Validating MS-BKRP protocol health
     > Attempting secret encrypt (MySecret!).... OK
     > Attempting secret decrypt.... OK -> MySecret!
 
+[+] SUCCESS! MS-BKRP secret encryption & decryption passed!
+
+[+] Operation completed
+
 ```
 
+
+### Fetch the currently served public backup key (Non-Admin) :
+You may want to check what is served by the Domain Controller via the MS-BKRP protocol, and retreive informaton about the certificate
+
+```
+C:\BackupKeyManager>BackupKeyManager.exe Fetch -s dc.domain.local --analyze
+
+[+] Retrieving the current BackupKey public certificate via MS-BKRP...OK -> Certificate size: 768
+[+] MS-BKRP Serviced Backupkey Guid         : 1e2b6567-3d6c-0642-eca0-ad0aef5f1b7e
+
+[+] Analyzing certificate information:
+[Certificate] Serial Number:     7E-1B-5F-EF-0A-AD-A0-EC-06-42-3D-6C-1E-2B-65-67
+[Certificate] Version:           3
+[Certificate] Issuer name:       domain.local
+[Certificate] Subject name:      domain.local
+[Certificate] Not Before:        11/18/2022 5:39:16 AM +00:00
+[Certificate] Not After:         11/18/2023 5:39:16 AM +00:00
+[Certificate] Validity period:   365.00:00:00
+[Certificate] SignatureAlgo OID: 1.3.14.3.2.29
+[Certificate] PublicKeyInfo OID: 1.2.840.113549.1.1.1
+[Certificate] RSA Key Size:      2048 bits
+[Certificate] Certificate Guid:  1e2b6567-3d6c-0642-eca0-ad0aef5f1b7e
+
+[+] Validating Certificate format...
+
+[+] Operation completed
+
+```
 
 
 ## Build

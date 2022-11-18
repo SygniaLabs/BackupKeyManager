@@ -17,39 +17,32 @@ namespace BackupKeyManager
 
     class Program
     {
-        [Verb("GetPreferredBackupGUID", HelpText = "Extract the GUID of the preferred (current) backup key")]
-        class GetPreferredBackupGUID_Opts
-        {
-          [Option('s', "DomainController", Required = true, HelpText = "Primary Domain Controller DNS Address to interact with")]
-          public string DomainController { get; set; }
-        }
-
         [Verb("GetPreferredBackupKey", HelpText = "Extract the preferred (current) backup key")]
         class GetPreferredBackupKey_Opts
         {
-            [Option('s', "DomainController", Required = true, HelpText = "Primary Domain Controller DNS Address to interact with")]
+            [Option('s', "DomainController", Required = true, HelpText = "(Required) Primary Domain Controller DNS Address to interact with")]
             public string DomainController { get; set; }
 
-            [Option('o', "OutputFile", Required = false, HelpText = "Dump Backupkey and certificate DER format outputs to files")]
+            [Option('o', "OutputFile", Required = false, HelpText = "(Optional) Dump Backupkey and certificate DER format outputs to files")]
             public bool OutputFile { get; set; }
             
-            [Option("analyze", Required = false, HelpText = "Analyze the exported BackupKey")]
+            [Option("analyze", Required = false, HelpText = "(Optional) Analyze the exported BackupKey")]
             public bool analyze { get; set; }
         }
 
         [Verb("GetBackupKeyByGUID", HelpText = "Extract a BackupKey value by GUID")]
         class GetBackupKeyByGUID_Opts
         {
-            [Option('s', "DomainController", Required = true, HelpText = "Primary Domain Controller DNS Address to interact with")]
+            [Option('s', "DomainController", Required = true, HelpText = "(Required) Primary Domain Controller DNS Address to interact with")]
             public string DomainController { get; set; }
 
-            [Option("GUID", Required = true, HelpText = "A GUID format string for the required action (e.g. XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX)")]
+            [Option("GUID", Required = true, HelpText = "(Required) A GUID format string for the required action (e.g. XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX).")]
             public string GUID { get; set; }
 
-            [Option('o', "OutputFile", Required = false, HelpText = "Dump Backupkey and certificate DER format outputs to files")]
+            [Option('o', "OutputFile", Required = false, HelpText = "(Optional) Dump Backupkey and certificate DER format outputs to files")]
             public bool OutputFile { get; set; }
             
-            [Option("analyze", Required = false, HelpText = "Analyze the exported BackupKey")]
+            [Option("analyze", Required = false, HelpText = "(Optional) Analyze the exported BackupKey")]
             public bool analyze { get; set; }
         }
 
@@ -66,46 +59,56 @@ namespace BackupKeyManager
         [Verb("GenerateNewBackupKey", HelpText = "Generate GUID and new backup key with option to push and set as preferred.")]
         class GenerateNewBackupKey_Opts
         {
-            [Option('d', "DomainName", Required = true, HelpText = "FQDN of the required domain. This will be included in the public certificate.")]
+            [Option('d', "DomainName", Required = true, HelpText = "(Required) FQDN of the required domain. This will be included in the public certificate.")]
             public string DomainName { get; set; }
 
-            [Option('o', "OutputFile", Required = false, HelpText = "Dump Backupkey and certificate DER format outputs to files")]
+            [Option('o', "OutputFile", Required = false, HelpText = "(Optional) Dump Backupkey and certificate DER format outputs to files")]
             public bool OutputFile { get; set; }
 
-            [Option('s', "DomainController", Required = false, HelpText = "Primary Domain Controller DNS Address to interact with. Set this this value if you wish to use push")]
+            [Option("push", Required = false, HelpText = "(Optional) Push the generated backup key to a Domain Controller.")]
+            public bool push { get; set; }
+
+            [Option('s', "DomainController", Required = false, HelpText = "(Depend on 'push' usage) Primary Domain Controller DNS Address to interact with.")]
             public string DomainController { get; set; }
            
-            [Option("push", Required = false, HelpText = "Push the generated backup key to the Domain Controller.")]
-            public bool push { get; set; }
-            
-            [Option("set", Required = false, HelpText = "Set the generated backup key as the Preferred Backupkey. --push must be used as well.")]
+            [Option("set", Required = false, HelpText = "(Depend on 'push' usage) Set the generated Backup key as the Preferred Backup key.")]
             public bool set { get; set; }
         }
 
-        [Verb("PushBackupKeyFromFile", HelpText = "Push new backup key from file. InputFile is required.")]
+        [Verb("BackupKeyFromFile", HelpText = "Load Backup key from file with option to push it and set it as preferred.")]
         class CreateBackupKeyFromFile_Opts
         {
-            [Option('s', "DomainController", Required = true, HelpText = "Primary Domain Controller DNS Address to interact with")]
-            public string DomainController { get; set; }
-
-            [Option('i', "InputFile", Required = true, HelpText = "Backup key input file in the dumped/created format - dpapibackupkey")]
+            [Option('i', "InputFile", Required = true, HelpText = "(Required) Backup key input file in the dumped/created format - '.dpapibkp'")]
             public string InputFile { get; set; }
 
-            [Option("set", Required = false, HelpText = "Set the imported backup key as the Preferred Backupkey.")]
+            [Option("push", Required = false, HelpText = "(Optional) Push the loaded backup key to a Domain Controller.")]
+            public bool push { get; set; }
+
+            [Option('s', "DomainController", Required = false, HelpText = "(Depend on 'push' usage) Primary Domain Controller DNS Address to interact with.")]
+            public string DomainController { get; set; }
+
+            [Option("set", Required = false, HelpText = "(Depend on 'push' usage) Set the loaded Backup key as the Preferred Backup key.")]
             public bool set { get; set; }
         }
 
-        [Verb("Check", HelpText = "Checks that the Backup Key being served to clients by the DC (via MS-BKRP) is synced with the preferred Backup Key (via MS-LSAD).")]
+        [Verb("Validate", HelpText = "Validates that the Backup Key was setup correctly and will be served to clients according to the Preferred Backup key. This check should be made against all DCs in the domain.")]
         class CheckBackupKey_Opts
         {
             [Option('s', "DomainController", Required = true, HelpText = "Primary Domain Controller DNS Address to interact with. This check should be made against all DCs in the domain.")]
             public string DomainController { get; set; }
+        }
 
-            [Option("validate", Required = false, HelpText = "Validates that the BackupKey protocol is functionning well.")]
-            public bool validate { get; set; }
+        [Verb("Fetch", HelpText = "Fetch the public Backup key certificate via MS-BKRP (Non-Admin operation). ")]
+        class FetchBackupKeyCert_Opts
+        {
+            [Option('s', "DomainController", Required = true, HelpText = "(Required) Primary Domain Controller DNS Address to interact with.")]
+            public string DomainController { get; set; }
             
-            [Option("analyze", Required = false, HelpText = "Analyze the exported BackupKey certificate")]
+            [Option("analyze", Required = false, HelpText = "Print information about the feteched certificate.")]
             public bool analyze { get; set; }
+            
+            [Option('o', "OutputFile", Required = false, HelpText = "Save the crtificate to a file (DER format) in the current path.")]
+            public bool OutputFile { get; set; }
         }
 
 
@@ -134,7 +137,7 @@ namespace BackupKeyManager
             {
                 uint winErrorCode = Interop.LsaNtStatusToWinError(ntStatus);
                 string errorMessage = new Win32Exception((int)winErrorCode).Message;
-                Console.WriteLine("  [!] Error calling {0} {1} : {2}", calledFunction, winErrorCode, errorMessage);
+                Console.WriteLine("  [!] Error calling {0}, ErrCode: {1}, ErrMsg: {2}", calledFunction, winErrorCode, errorMessage);
                 if (!continueOnError) { throw new InvalidOperationException("Error calling " + calledFunction); }
                 return false;
             }
@@ -159,10 +162,9 @@ namespace BackupKeyManager
 
             byte[] guidBytes = new byte[lusSecretData.Length];
             Marshal.Copy(lusSecretData.buffer, guidBytes, 0, lusSecretData.Length);  // Copy the GUID bytes from the secret data
-            Interop.LsaFreeMemory(lusSecretData.buffer);
+            //Interop.LsaFreeMemory(lusSecretData.buffer);
 
             Guid backupKeyGuid = new Guid(guidBytes);
-            Console.WriteLine("[+] Preferred backupkey Guid         : {0}", backupKeyGuid);
 
             return backupKeyGuid;
 
@@ -186,58 +188,40 @@ namespace BackupKeyManager
             uint ntsResult = Interop.LsaStorePrivateData(LsaPolicyHandle, ref secretName, ref privateData);
             checkNTstatus(ntsResult, "LsaStorePrivateData");
 
-
-
             Console.WriteLine($"[+] Modified preferred backup GUID to: {newPreferredGUID}");
-
-            return;
+            Console.WriteLine("\r\n[?] You must restart the targeted Domain Controller for the changes to take effect");
 
         }
 
-        public static byte[] GetBackupKeyByGUID(IntPtr LsaPolicyHandle, Guid backupKeyGuid, string DomainController = "", bool analyze = false, bool outFile = false)
+        public static byte[] GetBackupKeyByGUID(IntPtr LsaPolicyHandle, Guid backupKeyGuid)
         {
                        
             string backupKeyName = String.Format("G$BCKUPKEY_{0}", backupKeyGuid.ToString());
             Console.WriteLine("[+] Getting backup key     : {0}", backupKeyName);
             
+
             Interop.LSA_UNICODE_STRING backupKeyLSA = new Interop.LSA_UNICODE_STRING(backupKeyName);
 
             // retrieve the bytes of the full DPAPI private backup key
-            uint ntsResult = Interop.LsaRetrievePrivateData(LsaPolicyHandle, ref backupKeyLSA, out IntPtr PrivateData);
-            
-            checkNTstatus(ntsResult, "LsaRetrievePrivateData");
+            uint ntsResult = Interop.LsaRetrievePrivateData(LsaPolicyHandle, ref backupKeyLSA, out IntPtr PrivateData);            
+            if (!checkNTstatus(ntsResult, "LsaRetrievePrivateData")) { return null; }
 
-            Interop.LSA_UNICODE_STRING backupKeyBytesLSA = (Interop.LSA_UNICODE_STRING)Marshal.PtrToStructure(PrivateData, typeof(Interop.LSA_UNICODE_STRING));
-            Marshal.FreeHGlobal(PrivateData);
-
-
-            byte[] backupKeyBytes = new byte[backupKeyBytesLSA.Length];
-            Marshal.Copy(backupKeyBytesLSA.buffer, backupKeyBytes, 0, backupKeyBytesLSA.Length);
-            Interop.LsaFreeMemory(backupKeyBytesLSA.buffer);
-
-
-            if (analyze)
+            try
             {
-                
-                var dpapiDomainBackupKey = analyzeBackupKeyBytes(backupKeyBytes);
+                Interop.LSA_UNICODE_STRING backupKeyBytesLSA = (Interop.LSA_UNICODE_STRING)Marshal.PtrToStructure(PrivateData, typeof(Interop.LSA_UNICODE_STRING));
+                Marshal.FreeHGlobal(PrivateData);
 
-                if (!String.IsNullOrEmpty(DomainController))
-                {
-                    string domainName = dcToDomain(DomainController);
-                    analyzeBkpCertificate(dpapiDomainBackupKey, domainName, outFile);
-                }
-                else
-                {
-                    Console.WriteLine("[!] Error analyzing Backup Key, Domain Controller is missing");
-                }
+                byte[] backupKeyBytes = new byte[backupKeyBytesLSA.Length];
+                Marshal.Copy(backupKeyBytesLSA.buffer, backupKeyBytes, 0, backupKeyBytesLSA.Length);
+                //Interop.LsaFreeMemory(backupKeyBytesLSA.buffer);
+
+                Console.WriteLine("[+] BackupKey size: {0}", backupKeyBytes.Length);
+                return backupKeyBytes;
             }
-
-            if (outFile)
+            catch
             {
-                fileOutput(backupKeyGuid, backupKeyBytes);
+                return null;
             }
-
-            return backupKeyBytes;
         }
 
         public static IntPtr GetBackupKeyHandleByGuid(IntPtr LsaPolicyHandle, Guid BackupKeyGuid, bool continueOnError = false)
@@ -281,22 +265,19 @@ namespace BackupKeyManager
             //IntPtr BackupKeyValueStrLSAPointer = Marshal.AllocHGlobal(Marshal.SizeOf(BackupKeyValueStrLSA));
             //Marshal.StructureToPtr(BackupKeyValueStrLSA, BackupKeyValueStrLSAPointer, false);
 
-            Console.WriteLine("[+] Writing bytes data to Backup key...");
+            Console.WriteLine("[+] Writing bytes to Backup key...");
             uint ntsResult = Interop.LsaSetSecret(BackupKeyHandle, ref BackupKeyValueStrLSA, ref BackupKeyValueStrLSA);
 
             checkNTstatus(ntsResult, "LsaSetSecret");
 
-            Console.WriteLine("[+] Backup key data was set successfully");
-            return;  
+            Console.WriteLine("[+] Backup key uploaded successfully");
 
         }
 
-        public static byte[] GenerateDPAPIBackupKey(Guid backupKeyGuid, string domainName, bool outFile = false)
+        public static Interop.DOMAIN_BACKUP_KEY GenerateDPAPIBackupKey(Guid backupKeyGuid, string domainName)
         {
 
-            byte[] GuidByte = backupKeyGuid.ToByteArray();
-            
-            
+            byte[] GuidByte = backupKeyGuid.ToByteArray();            
             Console.WriteLine("\r\n[+] Generating 2048 bit RSA Key pair...");
             
             RSACryptoServiceProvider rsa = new RSACryptoServiceProvider(BackupKeyBitLength);
@@ -318,52 +299,17 @@ namespace BackupKeyManager
 
             Interop.DOMAIN_BACKUP_KEY domainBackupKey = new Interop.DOMAIN_BACKUP_KEY();
 
-            // Calculate BackupKey size
-            var domainBackupKeySize = (3 * 4) + cspBlob.Length + certBytesWithGuid.Length; // 3 Header DWORDS + Csp + certificate
-
             // Set the headers (UINT type)
             domainBackupKey.bkpVersion = BackupKeyVersion;
             domainBackupKey.cspLen = Convert.ToUInt32(cspBlob.Length);
             domainBackupKey.certificateLength = Convert.ToUInt32(certBytesWithGuid.Length);
-
             
             // Allocate pointers for Csp and Certificate
             domainBackupKey.AllocKeyData(cspBlob, certBytesWithGuid);
 
-            var certAnalyzeResult = analyzeBkpCertificate(domainBackupKey, domainName, outFile);
-            if (certAnalyzeResult.Equals(Guid.Empty) ||
-                !validateBackupKeyHeader(domainBackupKey)
-                )
-            {
-                throw new ArgumentException("Backup key validation failed");
-            }
-
-
-
-            // BackupKey Struct to Bytes
-            //  There should be a better way to do that. Currently I fail to do it with Marshal.StructToPtr.
-
-            //IntPtr dpapiBackupKeyPtr = Marshal.AllocHGlobal(Marshal.SizeOf(domainBackupKey));
-            //Marshal.StructureToPtr(domainBackupKey, dpapiBackupKeyPtr, false);
-
-
-            byte[] dpapiBackupKeyBytes = new byte[domainBackupKeySize];
-            Array.Copy(BitConverter.GetBytes(domainBackupKey.bkpVersion), 0, dpapiBackupKeyBytes, 0, 4);
-            Array.Copy(BitConverter.GetBytes(domainBackupKey.cspLen), 0, dpapiBackupKeyBytes, 4, 4);
-            Array.Copy(BitConverter.GetBytes(domainBackupKey.certificateLength), 0, dpapiBackupKeyBytes, 8, 4);
-
-            Marshal.Copy(domainBackupKey.cspBlobPtr, dpapiBackupKeyBytes, 12, cspBlob.Length);
-            Marshal.Copy(domainBackupKey.certificatePtr, dpapiBackupKeyBytes, 12+cspBlob.Length, certBytesWithGuid.Length);
-            domainBackupKey.FreePtrs(); // Customized Free for Csp ptr and Certificate Ptr
-
-            if (outFile)
-            {
-                Console.WriteLine("\r\n[+] Writing Backup key to file...");
-                fileOutput(backupKeyGuid, dpapiBackupKeyBytes);
-            }
-
-            return dpapiBackupKeyBytes;
+            return domainBackupKey;
         }
+
 
         public static IntPtr Initialize(string dc)
         {
@@ -385,16 +331,16 @@ namespace BackupKeyManager
 
         }
 
-        public static Interop.DOMAIN_BACKUP_KEY analyzeBackupKeyBytes(byte[] dpapiDomainBackupBytes)
+        public static Interop.DOMAIN_BACKUP_KEY GetBackupKeyFromBytes(byte[] dpapiDomainBackupBytes)
         {
 
-            Console.WriteLine("[+] BackupKey size: {0}", dpapiDomainBackupBytes.Length);
+            
             Interop.DOMAIN_BACKUP_KEY dpapiDomainBackupKey = ByteToDomainBackupKey(dpapiDomainBackupBytes);
 
             if (!validateBackupKeyHeader(dpapiDomainBackupKey))
             {
                 Console.WriteLine("[!] ERROR: BackupKey input is invalid or corrupted.");
-;                return dpapiDomainBackupKey;
+                throw new InvalidOperationException("Error: BackupKey input is invalid or corrupted!");
             }
 
 
@@ -403,7 +349,6 @@ namespace BackupKeyManager
 
         public static bool validateBackupKeyHeader(Interop.DOMAIN_BACKUP_KEY dpapiBackupKey)
         {
-
             Console.WriteLine("\r\n[+] Validating BackupKey header...");
             //Header validations:
             if (dpapiBackupKey.bkpVersion == BackupKeyVersion &&   // 02 00 00 00
@@ -417,60 +362,86 @@ namespace BackupKeyManager
             return false;
         }
 
-        public static Guid analyzeBkpCertificate(Interop.DOMAIN_BACKUP_KEY dpapiDomainBackupKey, string domainName, bool outFile = false)
-        {
-
-            // Extract Certificate from BackupKey structure
+        
+        // Extract Certificate from BackupKey structure (extracted via MS-LSAD)
+        public static byte[] ExtractMSLsadBkpCertificate(Interop.DOMAIN_BACKUP_KEY dpapiDomainBackupKey)
+        {            
             int certificateSize = Convert.ToInt32(dpapiDomainBackupKey.certificateLength);
             byte[] certificateDERformat = new byte[certificateSize];
             Marshal.Copy(dpapiDomainBackupKey.certificatePtr, certificateDERformat, 0, certificateSize);
-            return analyzeDERCertificate(certificateDERformat, domainName, outFile);
+            return certificateDERformat;
         }
-        
-        public static Guid analyzeDERCertificate(byte[] certificateDERformat, string domainName, bool outFile = false)
-        { 
 
-            Console.WriteLine("\r\n[+] Analyzing certificate information:");
+
+
+        // Fetches the Backup key certificate via MS-BKRP protocol over RPC. Any domain user permissions required.
+        public static byte[] GetMSBkrpServicedCert(String dc)
+        {
+
+            IntPtr BkrpCertPtr = IntPtr.Zero;
+            int BkrpCertSize = 0;
+
+            if (Interop.get_bkrp_cert(dc, ref BkrpCertPtr, ref BkrpCertSize)) {
+                byte[] BkrpCertBytes = new byte[BkrpCertSize];
+                Marshal.Copy(BkrpCertPtr, BkrpCertBytes, 0, BkrpCertSize);
+                Interop.free_bkrp(BkrpCertPtr);
+                return BkrpCertBytes;
+            }
+            else {
+                throw new InvalidOperationException("Error calling get_bkrp_cert function.");
+            }
+        }
+
+
+
+        // Special decoder for the MS-BKRP certificate.
+        public static Interop.BACKUP_KEY_PUB_CERT_INFO DecodeDERCertificate(byte[] certificateDERformat)
+        {
+
+            var BkpCertInfo = new Interop.BACKUP_KEY_PUB_CERT_INFO();
+            
             var certASN = new AsnReader(certificateDERformat, AsnEncodingRules.DER);
+            Asn1Tag asnMainTag = certASN.PeekTag();
+            int asnMainTagLength = certASN.PeekContentBytes().Length;
 
-            Console.WriteLine("[ASN] - {0}: {1}", certASN.PeekTag(), certASN.PeekContentBytes().Length);
             var seq3 = new AsnReader(certASN.PeekContentBytes(), AsnEncodingRules.DER);
             var seq9 = new AsnReader(seq3.PeekContentBytes(), AsnEncodingRules.DER);
-            Console.WriteLine("[ASN]  - {0}: {1}", seq3.PeekTag(), seq3.PeekContentBytes().Length);
+            
+            Asn1Tag asnFirstTagInMainSeq = seq3.PeekTag();
+            int asnFirstTagInMainSeqLength = seq3.PeekContentBytes().Length;
 
             var certVersionEncoded = seq9.ReadEncodedValue();
-            byte[] certVersionByte = certVersionEncoded.ToArray().Skip(4).Take(1).ToArray(); // Version 3, should be 02.
+            BkpCertInfo.certVersionByte = certVersionEncoded.ToArray().Skip(4).Take(1).ToArray(); // Version 3, should be 02.
 
-            var certSerial = seq9.ReadInteger(); // CertificateSerialNumber (Bigint)
+            BkpCertInfo.certSerial = seq9.ReadInteger(); // CertificateSerialNumber (Bigint)
 
-            var signatureAlgorithmOID = seq9.ReadSequence().ReadObjectIdentifier();  //OID 1.3.14.3.2.29 sha-1WithRSAEncryption (Oddball OIW OID)
+            BkpCertInfo.signatureAlgorithmOID = seq9.ReadSequence().ReadObjectIdentifier();  //OID 1.3.14.3.2.29 sha-1WithRSAEncryption (Oddball OIW OID)
 
 
             var certIssuer = seq9.ReadSequence().ReadSetOf().ReadSequence();  // Issuer
             certIssuer.ReadObjectIdentifier(); // 2.5.4.3 commonName (X.520 DN component)
             var certIssuerEncValue = certIssuer.ReadEncodedValue(); //PrintableString of CommonName. Exception on while trying to ReadCharacterString.
             string certIssuerStr = Encoding.Default.GetString(certIssuerEncValue.ToArray().Skip(2).ToArray());
-            certIssuerStr = certIssuerStr.Replace("\0", string.Empty);  // Issuer is stored as a UTF16 LE.
+            BkpCertInfo.certIssuerStr = certIssuerStr.Replace("\0", string.Empty);  // Issuer is stored as a UTF16 LE.
 
 
             var validDates = seq9.ReadSequence();  // Cert validity
-            var certNotBefore = validDates.ReadUtcTime(); // Not before UTC time
-            var certNotAfter = validDates.ReadUtcTime();  // Not after UTC time
-
+            BkpCertInfo.certNotBefore = validDates.ReadUtcTime(); // Not before UTC time
+            BkpCertInfo.certNotAfter = validDates.ReadUtcTime();  // Not after UTC time
 
 
             var certSubject = seq9.ReadSequence().ReadSetOf().ReadSequence(); //Subject
             certSubject.ReadObjectIdentifier();  // 2.5.4.3 commonName (X.520 DN component)
             var certSubjectEncValue = certSubject.ReadEncodedValue(); //PrintableString of CommonName 
             string certSubjectStr = Encoding.Default.GetString(certSubjectEncValue.ToArray().Skip(2).ToArray());
-            certSubjectStr = certSubjectStr.Replace("\0", string.Empty);  // Subject is stored as a UTF16 LE.
+            BkpCertInfo.certSubjectStr = certSubjectStr.Replace("\0", string.Empty);  // Subject is stored as a UTF16 LE.
 
 
             var subjectPublicKeyInfo = seq9.ReadSequence(); // subjectPublicKeyInfo
-            var subjectPublicKeyInfoOID = subjectPublicKeyInfo.ReadSequence().ReadObjectIdentifier(); // subjectPublicKeyInfo - OID 1.2.840.113549.1.1.1 
+            BkpCertInfo.subjectPublicKeyInfoOID = subjectPublicKeyInfo.ReadSequence().ReadObjectIdentifier(); // subjectPublicKeyInfo - OID 1.2.840.113549.1.1.1 
             byte[] subjectPublicKeyInfoBitStr = subjectPublicKeyInfo.ReadBitString(out int unusedarg);
             var subjectPublicKeyInfoBitStrReader = new AsnReader(subjectPublicKeyInfoBitStr, AsnEncodingRules.DER);
-            var subjectPublicKeyInfoRSAKey = subjectPublicKeyInfoBitStrReader.ReadSequence().ReadInteger();
+            BkpCertInfo.subjectPublicKeyInfoRSAKey = subjectPublicKeyInfoBitStrReader.ReadSequence().ReadInteger();
 
 
 
@@ -479,10 +450,12 @@ namespace BackupKeyManager
             seq9.ThrowIfNotEmpty();
 
 
+            seq3.ReadSequence();            
+            Asn1Tag asnSecondTagInMainSeq = seq3.PeekTag();
+            int asnSecondTagInMainSeqLength = seq3.PeekContentBytes().Length;
             seq3.ReadSequence();
-            Console.WriteLine("[ASN]  - {0}: {1}", seq3.PeekTag(), seq3.PeekContentBytes().Length);
-            seq3.ReadSequence();
-            Console.WriteLine("[ASN]  - {0}: {1}", seq3.PeekTag(), seq3.PeekContentBytes().Length);
+            Asn1Tag asnThirdTagInMainSeq = seq3.PeekTag();
+            int asnThirdTagInMainSeqLength = seq3.PeekContentBytes().Length;
             seq3.ReadBitString(out int countof3BitStr);
             seq3.ThrowIfNotEmpty();
 
@@ -494,73 +467,96 @@ namespace BackupKeyManager
             byte[] CertGuidByte1 = subjectUniqueIDEncoded.ToArray().Skip(3).Take(16).ToArray(); // Transfrom from ASN1 encoded representation to Guid Bytes.
             byte[] CertGuidByte2 = issuerUniqueIDEncoded.ToArray().Skip(3).Take(16).ToArray();
 
-            Guid bkpCertGuid = new Guid(CertGuidByte1);
+            BkpCertInfo.asnCtx1CertGuid = new Guid(CertGuidByte1);
+            BkpCertInfo.asnCtx2CertGuid = new Guid(CertGuidByte2);
+
+            /*
+            Console.WriteLine("[ASN] - {0}: {1}", asnMainTag, asnMainTagLength);
+            Console.WriteLine("[ASN]    - {0}: {1}", asnFirstTagInMainSeq, asnFirstTagInMainSeqLength);
+            Console.WriteLine("[ASN]    - {0}: {1}", asnSecondTagInMainSeq, asnSecondTagInMainSeqLength);
+            Console.WriteLine("[ASN]    - {0}: {1}", asnThirdTagInMainSeq, asnThirdTagInMainSeqLength);
+            */
+     
+            return BkpCertInfo;
+        }
+
+        
+        public static void BkpCertInfoPrint(Interop.BACKUP_KEY_PUB_CERT_INFO BkpCertInfo)
+        {
+
+            Console.WriteLine("\r\n[+] Analyzing certificate information:");
+            Console.WriteLine("[Certificate] Serial Number:     {0}", BitConverter.ToString(BkpCertInfo.certSerial.ToByteArray().Reverse().ToArray())); // Certificate serial number (big int) interpreted with Big endian byte order
+            Console.WriteLine("[Certificate] Version:           {0}", ((int)BkpCertInfo.certVersionByte[0]) + 1); // Adding 1 to reflect the actual version.
+            Console.WriteLine("[Certificate] Issuer name:       {0}", BkpCertInfo.certIssuerStr);
+            Console.WriteLine("[Certificate] Subject name:      {0}", BkpCertInfo.certSubjectStr);
+            Console.WriteLine("[Certificate] Not Before:        {0}", BkpCertInfo.certNotBefore);
+            Console.WriteLine("[Certificate] Not After:         {0}", BkpCertInfo.certNotAfter);
+            Console.WriteLine("[Certificate] Validity period:   {0}", BkpCertInfo.certNotAfter - BkpCertInfo.certNotBefore);
+            Console.WriteLine("[Certificate] SignatureAlgo OID: {0}", BkpCertInfo.signatureAlgorithmOID);
+            Console.WriteLine("[Certificate] PublicKeyInfo OID: {0}", BkpCertInfo.subjectPublicKeyInfoOID);
+            Console.WriteLine("[Certificate] RSA Key Size:      {0} bits", (BkpCertInfo.subjectPublicKeyInfoRSAKey.ToByteArray().Length - 1) * 8);  //Substracted the sign (positive/negative) byte. More info: https://crypto.stackexchange.com/questions/30608/leading-00-in-rsa-public-private-key-file
+            Console.WriteLine("[Certificate] Certificate Guid:  {0}", BkpCertInfo.asnCtx1CertGuid);
+
+        }
 
 
+        public static bool BkpCertInfoValidate(Interop.BACKUP_KEY_PUB_CERT_INFO BkpCertInfo, string domainName)
+        {
 
-            Console.WriteLine("[Certificate] Serial Number:     {0}", BitConverter.ToString(certSerial.ToByteArray().Reverse().ToArray())); // Certificate serial number (big int) interpreted with Big endian byte order
-            Console.WriteLine("[Certificate] Version:           {0}", ((int)certVersionByte[0]) + 1); // Adding 1 to reflect the actual version.
-            Console.WriteLine("[Certificate] Issuer name:       {0}", certIssuerStr);
-            Console.WriteLine("[Certificate] Subject name:      {0}", certSubjectStr);
-            Console.WriteLine("[Certificate] Not Before:        {0}", certNotBefore);
-            Console.WriteLine("[Certificate] Not After:         {0}", certNotAfter);
-            Console.WriteLine("[Certificate] Validity period:   {0}", certNotAfter - certNotBefore);
-            Console.WriteLine("[Certificate] SignatureAlgo OID: {0}", signatureAlgorithmOID);
-            Console.WriteLine("[Certificate] PublicKeyInfo OID: {0}", subjectPublicKeyInfoOID);
-            Console.WriteLine("[Certificate] RSA Key Size:      {0} bits", (subjectPublicKeyInfoRSAKey.ToByteArray().Length - 1) * 8);  //Substracted the sign (positive/negative) byte. More info: https://crypto.stackexchange.com/questions/30608/leading-00-in-rsa-public-private-key-file
-            Console.WriteLine("[Certificate] Certificate Guid:  {0}", bkpCertGuid);
-
-            if (outFile)
-            {
-                fileOutput(bkpCertGuid, certificateDERformat, ".der");
-            }
-
-            
-            Console.WriteLine("\r\n[+] Validating certificate format"); // Validating the specific certificate requirements of the Backup key
+            bool status = true;
+            Console.WriteLine("\r\n[+] Validating Certificate format..."); // Validating the specific certificate requirements of the Backup key
 
             // There must be a better way than the below:
-            if (certSubjectStr.ToLower() != domainName.ToLower()) {
+            if (BkpCertInfo.certSubjectStr.ToLower() != domainName.ToLower())
+            {
                 Console.WriteLine("  [!] ERROR: Subject should be identical to targeted Domain name");
-                bkpCertGuid = Guid.Empty;
+                status = false;
             }
 
-            if ((subjectPublicKeyInfoRSAKey.ToByteArray().Length - 1) * 8 != BackupKeyBitLength) {
+            if ((BkpCertInfo.subjectPublicKeyInfoRSAKey.ToByteArray().Length - 1) * 8 != BackupKeyBitLength)
+            {
                 Console.WriteLine("  [!] ERROR: Public key must be of 2048 bit in length");
-                bkpCertGuid = Guid.Empty;
+                status = false;
             }
 
-            if (signatureAlgorithmOID != SignatureAlgOidOddballOIW) {
+            if (BkpCertInfo.signatureAlgorithmOID != SignatureAlgOidOddballOIW)
+            {
                 Console.WriteLine("  [!] ERROR: Signature algorithm must be 1.3.14.3.2.29 Oddball OIW");
-                bkpCertGuid = Guid.Empty;
+                status = false;
             }
 
-            if (certNotBefore.AddYears(CertificateValidityPeriodYears) != certNotAfter) {
+            if (BkpCertInfo.certNotBefore.AddYears(CertificateValidityPeriodYears) != BkpCertInfo.certNotAfter)
+            {
                 Console.WriteLine("  [!] ERROR: Certificate validity should be 365 days");
-                bkpCertGuid = Guid.Empty;
+                status = false;
             }
 
-            if (certVersionByte[0] != CertificateVersion) {
+            if (BkpCertInfo.certVersionByte[0] != CertificateVersion)
+            {
                 Console.WriteLine("  [!] ERROR: Certificate version should be 3 (0x2)");
-                bkpCertGuid = Guid.Empty;
+                status = false;
             }
 
-            if (!CertGuidByte1.SequenceEqual(CertGuidByte2)) {
+            if (BkpCertInfo.asnCtx1CertGuid != BkpCertInfo.asnCtx2CertGuid)
+            {
                 Console.WriteLine("  [!] ERROR: Subject UniqueID and Issuer UniqueID should be identical");
-                bkpCertGuid = Guid.Empty;
+                status = false;
             }
 
-            if (certIssuerStr != certSubjectStr) {
+            if (BkpCertInfo.certIssuerStr != BkpCertInfo.certSubjectStr)
+            {
                 Console.WriteLine("  [!] ERROR: Issuer should be identical to Subject");
-                bkpCertGuid = Guid.Empty;
+                status = false;
             }
 
-            if (certSerial.ToByteArray().Length != CertificateSerialNumberByteLen) {
+            if (BkpCertInfo.certSerial.ToByteArray().Length != CertificateSerialNumberByteLen)
+            {
                 Console.WriteLine("  [!] ERROR: Serial number must be exactly 16 bytes in length");
-                bkpCertGuid = Guid.Empty;
+                status = false;
             }
-        
-            return bkpCertGuid;
+            return status;
         }
+
 
         public static X500DistinguishedName buildDNforBkp(string domainName)
         {
@@ -685,7 +681,32 @@ namespace BackupKeyManager
                 Marshal.FreeHGlobal(ptr);
             }
             return domainBackupKey;
-        }       
+        }
+
+        public static byte[] GetBackupKeyBytes(Interop.DOMAIN_BACKUP_KEY BackupKey)
+        {
+
+            // Calculate BackupKey size
+            var domainBackupKeySize = (3 * 4) + BackupKey.cspLen + BackupKey.certificateLength; // 3 Header DWORDS + Csp + certificate
+
+
+            // BackupKey Struct to Bytes
+            //  There should be a better way to do that. Currently I fail to do it with Marshal.StructToPtr.
+
+            //IntPtr dpapiBackupKeyPtr = Marshal.AllocHGlobal(Marshal.SizeOf(domainBackupKey));
+            //Marshal.StructureToPtr(domainBackupKey, dpapiBackupKeyPtr, false);
+
+            byte[] dpapiBackupKeyBytes = new byte[domainBackupKeySize];
+            Array.Copy(BitConverter.GetBytes(BackupKey.bkpVersion), 0, dpapiBackupKeyBytes, 0, 4);
+            Array.Copy(BitConverter.GetBytes(BackupKey.cspLen), 0, dpapiBackupKeyBytes, 4, 4);
+            Array.Copy(BitConverter.GetBytes(BackupKey.certificateLength), 0, dpapiBackupKeyBytes, 8, 4);
+
+            Marshal.Copy(BackupKey.cspBlobPtr, dpapiBackupKeyBytes, 12, (int)BackupKey.cspLen);
+            Marshal.Copy(BackupKey.certificatePtr, dpapiBackupKeyBytes, 12 + (int)BackupKey.cspLen, (int)BackupKey.certificateLength);
+
+            return dpapiBackupKeyBytes;
+        }
+
 
         public static string dcToDomain(string DomainController)
         {
@@ -720,8 +741,8 @@ namespace BackupKeyManager
 
             if (File.Exists(OutputFilePath))
             {
-                Console.WriteLine("[!] ERROR: The output path already exists!");
-                Console.WriteLine("[!] ERROR: Can't write output to a file!");
+                Console.WriteLine("[!] ERROR: {0} already exists!", OutputFilePath);
+                Console.WriteLine("[!] ERROR: Cannot write output to a file!");
                 return false;
             }
             else
@@ -776,6 +797,8 @@ namespace BackupKeyManager
 
 
 
+
+
         static void Main(string[] args)
         {
             IntPtr LsaPolicyHandle = IntPtr.Zero;
@@ -785,28 +808,39 @@ namespace BackupKeyManager
             {              
 
 
-                Parser.Default.ParseArguments<GetPreferredBackupGUID_Opts,
-                                              GetPreferredBackupKey_Opts,
+                Parser.Default.ParseArguments<GetPreferredBackupKey_Opts,
                                               GetBackupKeyByGUID_Opts,
                                               SetPreferredBackupKeyByGUID_Opts,
                                               GenerateNewBackupKey_Opts,
                                               CreateBackupKeyFromFile_Opts,
-                                              CheckBackupKey_Opts>
+                                              CheckBackupKey_Opts,
+                                              FetchBackupKeyCert_Opts>
                                               (args)
                                               .MapResult(
-                                                (GetPreferredBackupGUID_Opts opts) =>
-                                                {
-                                                    LsaPolicyHandle = Initialize(opts.DomainController);
-                                                    GetPreferredBackupGUID(LsaPolicyHandle).ToString();
-                                                    return 0;
-                                                },
-
                                                 (GetPreferredBackupKey_Opts opts) =>
                                                 {
                                                     LsaPolicyHandle = Initialize(opts.DomainController);
                                                     Guid preferredBackupKeyGUID = GetPreferredBackupGUID(LsaPolicyHandle);
-                                                    GetBackupKeyByGUID(LsaPolicyHandle, preferredBackupKeyGUID,
-                                                                       opts.DomainController, opts.analyze, opts.OutputFile);
+                                                    Console.WriteLine("[+] Preferred backupkey Guid         : {0}", preferredBackupKeyGUID.ToString());
+                                                    
+                                                    byte[] backupKeyBytes = GetBackupKeyByGUID(LsaPolicyHandle, preferredBackupKeyGUID);
+                                                    var dpapiDomainBackupKey = GetBackupKeyFromBytes(backupKeyBytes);
+                                                    byte[] BkpCertBytes = ExtractMSLsadBkpCertificate(dpapiDomainBackupKey);
+                                                    var BkpCertInfo = DecodeDERCertificate(BkpCertBytes);
+
+                                                    if (opts.analyze)
+                                                    {
+                                                        BkpCertInfoPrint(BkpCertInfo);
+                                                        string domainName = dcToDomain(opts.DomainController);
+                                                        BkpCertInfoValidate(BkpCertInfo, domainName);
+                                                    }
+
+                                                    if (opts.OutputFile)
+                                                    {
+                                                        fileOutput(preferredBackupKeyGUID, backupKeyBytes);
+                                                        fileOutput(BkpCertInfo.asnCtx1CertGuid, BkpCertBytes, ".der");
+                                                    }
+
                                                     return 0;
                                                 },
 
@@ -814,8 +848,26 @@ namespace BackupKeyManager
                                                 {
                                                     LsaPolicyHandle = Initialize(opts.DomainController);
                                                     Guid BackupKeyGUID = new Guid(opts.GUID);
-                                                    GetBackupKeyByGUID(LsaPolicyHandle, BackupKeyGUID,
-                                                                       opts.DomainController, opts.analyze, opts.OutputFile);
+                                                    
+                                                    byte[] backupKeyBytes = GetBackupKeyByGUID(LsaPolicyHandle, BackupKeyGUID);
+                                                    var dpapiDomainBackupKey = GetBackupKeyFromBytes(backupKeyBytes);
+                                                    byte[] BkpCertBytes = ExtractMSLsadBkpCertificate(dpapiDomainBackupKey);
+                                                    var BkpCertInfo = DecodeDERCertificate(BkpCertBytes);
+
+                                                    if (opts.analyze)
+                                                    {
+                                                        BkpCertInfoPrint(BkpCertInfo);
+                                                        string domainName = dcToDomain(opts.DomainController);
+                                                        BkpCertInfoValidate(BkpCertInfo, domainName);
+                                                    } 
+
+                                                    if (opts.OutputFile)
+                                                    {
+                                                        fileOutput(BackupKeyGUID, backupKeyBytes);
+                                                        fileOutput(BkpCertInfo.asnCtx1CertGuid, BkpCertBytes, ".der");
+                                                    }
+
+
                                                     return 0;
                                                 },
 
@@ -834,16 +886,39 @@ namespace BackupKeyManager
                                                 {
                                                     Guid BackupKeyGUID = genBkpGuid();
                                                     Console.WriteLine("\r\n[+] Generated Guid: {0}", BackupKeyGUID);
-                                                    byte[] BackupKeyBytes = GenerateDPAPIBackupKey(BackupKeyGUID, opts.DomainName, opts.OutputFile);
-                                                    if (BackupKeyBytes == null)
+                                                    Interop.DOMAIN_BACKUP_KEY BackupKey = GenerateDPAPIBackupKey(BackupKeyGUID, opts.DomainName);
+
+                                                    byte[] BackupKeyBytes = GetBackupKeyBytes(BackupKey);
+                                                    Console.WriteLine("[+] BackupKey size: {0}", BackupKeyBytes.Length);
+                                                    byte[] BkpCertBytes = ExtractMSLsadBkpCertificate(BackupKey);
+                                                    Interop.BACKUP_KEY_PUB_CERT_INFO BkpCertInfo = DecodeDERCertificate(BkpCertBytes);
+
+                                                    BkpCertInfoPrint(BkpCertInfo);
+
+                                                    if (BkpCertInfo.asnCtx1CertGuid.Equals(Guid.Empty) ||
+                                                        !validateBackupKeyHeader(BackupKey) ||
+                                                        !BkpCertInfoValidate(BkpCertInfo, opts.DomainName)
+                                                        )
                                                     {
-                                                        Console.WriteLine("[!] ERROR: BackupKey generation failed.");
-                                                        return 1;
+                                                        throw new ArgumentException("Error: Backup key generation failed!");
                                                     }
+                                                    BackupKey.FreePtrs(); // Customized Free for Csp ptr and Certificate Ptr
+
+
+                                                    if (opts.OutputFile)
+                                                    {
+                                                        fileOutput(BkpCertInfo.asnCtx1CertGuid, BackupKeyBytes);
+                                                        fileOutput(BkpCertInfo.asnCtx1CertGuid, BkpCertBytes, ".der");
+                                                    }
+
+
                                                     if (opts.push)
                                                     {
                                                         if (String.IsNullOrEmpty(opts.DomainController))
                                                         { throw new ArgumentException("You must provide Domain Controller to push to"); }
+
+                                                        if (opts.DomainName != dcToDomain(opts.DomainController))
+                                                        { throw new ArgumentException("BackupKey Subject and Issuer must be identical to the targeted domain!"); }
 
                                                         LsaPolicyHandle = Initialize(opts.DomainController);
                                                         BackupKeyHandle = CreateNewBackupKey(LsaPolicyHandle, BackupKeyGUID);
@@ -859,78 +934,108 @@ namespace BackupKeyManager
                                                 (CreateBackupKeyFromFile_Opts opts) =>
                                                 {
                                                     byte[] BackupKeyBytes = File.ReadAllBytes(opts.InputFile);
-                                                    var dpapiDomainBackupKey = analyzeBackupKeyBytes(BackupKeyBytes);
-                                                    string domainName = dcToDomain(opts.DomainController); // Given the DC's DNS name and not IP / name only!
-                                                    Guid BackupKeyGUID = analyzeBkpCertificate(dpapiDomainBackupKey, domainName);
-                                                    if (BackupKeyGUID == Guid.Empty)
+                                                    Console.WriteLine("[+] BackupKey size: {0}", BackupKeyBytes.Length);
+
+
+                                                    var dpapiDomainBackupKey = GetBackupKeyFromBytes(BackupKeyBytes);
+                                                    byte[] BkpCertBytes = ExtractMSLsadBkpCertificate(dpapiDomainBackupKey);
+                                                    var BkpCertInfo = DecodeDERCertificate(BkpCertBytes);
+
+                                                    // BackupKey structure validation
+                                                    BkpCertInfoPrint(BkpCertInfo);                                                    
+
+                                                    if (opts.push)
                                                     {
-                                                        return 1;
+                                                        if (String.IsNullOrEmpty(opts.DomainController))
+                                                        { throw new ArgumentException("You must provide Domain Controller to push to"); }
+
+                                                        if (!BkpCertInfoValidate(BkpCertInfo, dcToDomain(opts.DomainController)) || BkpCertInfo.asnCtx1CertGuid == Guid.Empty)
+                                                        { throw new ArgumentException("ERROR: Input BackupKey file is invalid and/or was not generated for the targeted domain");}
+
+
+                                                        LsaPolicyHandle = Initialize(opts.DomainController);
+                                                        Console.WriteLine("\r\n[+] Checking that we will not overwrite exisitng backup key...");
+                                                        BackupKeyHandle = GetBackupKeyHandleByGuid(LsaPolicyHandle, BkpCertInfo.asnCtx1CertGuid, true);
+                                                        if (BackupKeyHandle != IntPtr.Zero)
+                                                        {
+                                                            throw new ArgumentException("The backup key you are trying to push already exists.");
+                                                        }
+                                                        BackupKeyHandle = CreateNewBackupKey(LsaPolicyHandle, BkpCertInfo.asnCtx1CertGuid);
+                                                        SetBackupKeyValue(BackupKeyHandle, BackupKeyBytes);
+                                                        if (opts.set)
+                                                        {
+                                                            SetPreferredBackupKeyByGUID(LsaPolicyHandle, BkpCertInfo.asnCtx1CertGuid);
+                                                        }
                                                     }
-                                                    LsaPolicyHandle = Initialize(opts.DomainController);
-                                                    Console.WriteLine("\r\n[+] Checking that we will not overwrite exisitng backup key...");
-                                                    BackupKeyHandle = GetBackupKeyHandleByGuid(LsaPolicyHandle, BackupKeyGUID, true);
-                                                    if (BackupKeyHandle != IntPtr.Zero)
-                                                    {
-                                                        throw new ArgumentException("The backup key you are trying to push already exists.");
-                                                    }
-                                                    BackupKeyHandle = CreateNewBackupKey(LsaPolicyHandle, BackupKeyGUID);
-                                                    SetBackupKeyValue(BackupKeyHandle, BackupKeyBytes);
-                                                    if (opts.set)
-                                                    {
-                                                        SetPreferredBackupKeyByGUID(LsaPolicyHandle, BackupKeyGUID);
-                                                    }
+
                                                     return 0;
                                                 },
 
                                                 (CheckBackupKey_Opts opts) =>
                                                 {
                                                     LsaPolicyHandle = Initialize(opts.DomainController);
-                                                    Guid currentGuid = GetPreferredBackupGUID(LsaPolicyHandle);
+                                                    Guid currentPreferredGuid = GetPreferredBackupGUID(LsaPolicyHandle);
+                                                    Console.WriteLine("[+] Preferred Backupkey Guid         : {0}\r\n", currentPreferredGuid.ToString());
+                                                    
+                                                    byte[] msBkrpCert = GetMSBkrpServicedCert(opts.DomainController);
+                                                    var msBkrpCertInfo = DecodeDERCertificate(msBkrpCert);
+                                                    Console.WriteLine("[+] MS-BKRP Serviced Backupkey Guid         : {0}", msBkrpCertInfo.asnCtx1CertGuid.ToString());
 
-                                                    IntPtr BkrpCertPtr = IntPtr.Zero;
-                                                    int BkrpCertSize = 0;
 
-                                                    if (Interop.get_bkrp_cert(opts.DomainController, ref BkrpCertPtr, ref BkrpCertSize))
-                                                    {
-                                                        byte[] crtByteTest = new byte[BkrpCertSize];
-                                                        Marshal.Copy(BkrpCertPtr, crtByteTest, 0, BkrpCertSize);
-                                                        Interop.free_bkrp(BkrpCertPtr);
-
-                                                        string domainName = dcToDomain(opts.DomainController);
-                                                        Guid BkrpCertGuid = analyzeDERCertificate(crtByteTest, domainName, false);
-
-                                                        Console.WriteLine("\r\n[+] Comparing BackupKey Guid...");
-                                                        if (currentGuid == BkrpCertGuid) {
-                                                            Console.WriteLine("SUCCESS! The serviced Backup Key (via MS-BKRP) and the preferred Backup key (via MS-LSAD) are synced");
-                                                        }
-                                                        else {
-                                                            Console.WriteLine("ERROR! Try to restart the DC and repeat this check.");
-                                                        }
+                                                    if (currentPreferredGuid == msBkrpCertInfo.asnCtx1CertGuid) {
+                                                        Console.WriteLine("\r\n[+] SUCCESS! The serviced Backup Key (MS-BKRP) and the Preferred Backup key (MS-LSAD) are synced");
                                                     }
-
                                                     else {
-                                                        throw new InvalidOperationException("Error calling get_bkrp_cert function. Make sure to specify valid and reachable DC hostname.");
+                                                        Console.WriteLine("\r\n[!] ERROR: Expected serviced BackupKey Guid was not detected, try restarting the DC and repeat this check.");
+                                                        return 1;
                                                     }
 
-                                                    if (opts.validate) {
-                                                        if (Interop.bkrp_test(opts.DomainController)) {
-                                                            Console.WriteLine("\r\n[+] MS-BKRP Encrypt-Decrypt secret passed!");
-                                                        }
-                                                        else {
-                                                            Console.WriteLine("\r\n[!] MS-BKRP is not healthy. Try to revert to the original backup key via SetPreferredBackupKeyByGUID and restart the DC.");
-                                                        }
+                                                    Console.WriteLine("\r\n[+] Validating MS-BKRP protocol health");
+                                                    if (Interop.bkrp_test(opts.DomainController)) {
+                                                        Console.WriteLine("\r\n[+] SUCCESS! MS-BKRP secret encryption & decryption passed!");
+                                                    }
+                                                    else {
+                                                        Console.WriteLine("\r\n[!] MS-BKRP is unhealthy. Try reverting to the original backup key via SetPreferredBackupKeyByGUID and restart the DC.");
+                                                        return 1;
                                                     }
 
                                                     return 0;
 
                                                 },
+
+                                                (FetchBackupKeyCert_Opts opts) =>
+                                                {
+                                                    byte[] msBkrpCert = GetMSBkrpServicedCert(opts.DomainController);
+                                                    var msBkrpCertInfo = DecodeDERCertificate(msBkrpCert);
+                                                    Console.WriteLine("[+] MS-BKRP Serviced Backupkey Guid         : {0}", msBkrpCertInfo.asnCtx1CertGuid.ToString());
+
+                                                    if (opts.OutputFile)
+                                                    {
+                                                        if (!fileOutput(msBkrpCertInfo.asnCtx1CertGuid, msBkrpCert, ".der"))
+                                                        {
+                                                            throw new InvalidOperationException("Error writing output file!");
+                                                        }
+                                                    }
+
+                                                    if (opts.analyze)
+                                                    {
+                                                        BkpCertInfoPrint(msBkrpCertInfo);
+                                                        string domainName = dcToDomain(opts.DomainController);
+                                                        BkpCertInfoValidate(msBkrpCertInfo, domainName);
+                                                    }
+                                                    return 0;
+
+                                                },
+
+
+                                                
                                                 errors => 1);
 
-                Console.WriteLine("\r\n[+] Operation completed successfully!");
+                Console.WriteLine("\r\n[+] Operation completed");
             }
             
             catch(Exception e) {
-                Console.WriteLine("\r\n[!] An error occured during the operation: {0}", e);
+                Console.WriteLine("\r\n{0}", e);
             }
             
             finally {
