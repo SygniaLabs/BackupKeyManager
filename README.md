@@ -2,11 +2,11 @@
 
 ## Overview
 
-Data Protection API (DPAPI), is a widely used fucntionality within Windows applications to encrpyt sensitive data without taking care the encryption itself.<br />
+Data Protection API (DPAPI), is a widely used functionality within Windows applications to encrpyt sensitive data without taking care the encryption key and algorithm themselves.<br />
 Every Windows user has a Master Key (located in his profile path) that he uses to encrypt and decrypt data which can be stored locally or remotely.<br />
 For Active Directory users, one copy of this Master Key is encrypted with the user's password and another copy is encrypted with the Domain BackupKey.
 The second encrpytion was desgined to help users recover encrypted secrets in case they forget their own password.<br />
-The Domain BackupKey is a unique RSA key pair generated during the Active Directory domain inception.
+The Domain BackupKey is a unique RSA key pair generated during Active Directory domain inception.
 Due to the fact that the BackupKey is permanent per domain, an exposure of this key provides an adversary with the ability to decrypt users' Master keys across the domain indefinitely.<br />
 
 The [BackupKeyManager]() is a tool to help organizations enhance their security, on a post compromise scenario, where their DPAPI Domain BackupKey was exposed and they wish to mitigate the risk of further exploitation with this key.
@@ -23,7 +23,7 @@ This repository contains two projects:
 
 ### Create and onboard new DPAPI Backup key flow:
 
-1. First, you will have to use the BackupKeyManager to extract the currently used (preferred) BackupKey. Write Down its GUID in case you will need to revert back to it.
+1. First, you will have to use the BackupKeyManager to extract the currently used (preferred) BackupKey. Write down its GUID in case you will need to revert back to it.
 2. Use the BackupKeyManager to create and prefer a new backup key in the domain (Note to write down the generated GUID).
 3. A restart will be required to the DC as we must reload the LSASS process.
 4. Use the BackupKeyManager to validate that the certificate's GUID being served is identical to the one generated during step #1.
@@ -59,28 +59,26 @@ C:\BackupKeyManager>BackupKeyManager.exe --help
 BackupKeyManager 1.0.0.0
 Copyright c  2022
 
+ERROR(S):
+  No verb selected.
+
   GetPreferredBackupKey          Extract the preferred (current) backup key
 
   GetBackupKeyByGUID             Extract a BackupKey value by GUID
 
-  SetPreferredBackupKeyByGUID    Set a new preferred bakupkey by providing its GUID
+  SetPreferredBackupKeyByGUID    Set a new preferred BackupLey by providing its GUID
 
-  GenerateNewBackupKey           Generate GUID and new backup key with option to push and set as preferred.
+  GenerateNewBackupKey           Generate GUID and new BackupKey with option to push and set as preferred.
 
-  BackupKeyFromFile              Load Backup key from file with option to push it and set it as preferred.
+  BackupKeyFromFile              Load BackupKey from file with option to push it and set it as preferred.
 
-  Validate                       Validates that the Backup Key was setup correctly and will be served to clients
-                                 according to the Preferred Backup key. This check should be made against all DCs in the
-                                 domain.
+  Validate                       Validates that the BackupKey setup. Validation should be made against all DCs in the domain.
 
-  Fetch                          Fetch the public Backup key certificate via MS-BKRP (Non-Admin operation).
+  Fetch                          Fetch the public BackupKey certificate via MS-BKRP (Non-Admin operation).
 
   help                           Display more information on a specific command.
 
   version                        Display version information.
-
-
-[+] Operation completed
 ```
 
 ### List specific verb's flags:
@@ -90,23 +88,19 @@ C:\BackupKeyManager>BackupKeyManager.exe GenerateNewBackupKey --help
 BackupKeyManager 1.0.0.0
 Copyright c  2022
 
-  -d, --DomainName          Required. (Required) FQDN of the required domain. This will be included in the public
-                            certificate.
+  -d, --DomainName          Required. FQDN of the targeted domain. This will be included in the public certificate.
 
-  -o, --OutputFile          (Optional) Dump Backupkey and certificate DER format outputs to files
+  -o                        (Optional) Flag to dump BackupKey and certificate DER format outputs to files
 
-  --push                    (Optional) Push the generated backup key to a Domain Controller.
+  --push                    (Optional) Push the generated BackupKey to a Domain Controller.
 
-  -s, --DomainController    (Depend on 'push' usage) Primary Domain Controller DNS Address to interact with.
+  -s, --DomainController    (Required with 'push') Primary Domain Controller FQDN to interact with.
 
-  --set                     (Depend on 'push' usage) Set the generated Backup key as the Preferred Backup key.
+  --set                     (Required with 'push') Set the generated BackupKey as the Preferred BackupKey.
 
   --help                    Display this help screen.
 
   --version                 Display version information.
-
-
-[+] Operation completed
 ```
 
 
@@ -137,7 +131,7 @@ C:\BackupKeyManager>BackupKeyManager.exe GetPreferredBackupKey -s dc.domain.loca
 
 [+] Validating Certificate format...
 
-[+] Operation completed
+[+] Operation completed successfully!
 
 ```
 
@@ -179,7 +173,7 @@ C:\BackupKeyManager>BackupKeyManager.exe GenerateNewBackupKey -d domain.local -s
 
 [?] You must restart the targeted Domain Controller for the changes to take effect
 
-[+] Operation completed
+[+] Operation completed successfully!
 ```
 
 ### ** Restart The targeted Domain Controller **
@@ -205,7 +199,7 @@ C:\BackupKeyManager>BackupKeyManager.exe Validate -s dc.domain.local
 
 [+] SUCCESS! MS-BKRP secret encryption & decryption passed!
 
-[+] Operation completed
+[+] Operation completed successfully!
 
 ```
 
@@ -234,10 +228,16 @@ C:\BackupKeyManager>BackupKeyManager.exe Fetch -s dc.domain.local --analyze
 
 [+] Validating Certificate format...
 
-[+] Operation completed
+[+] Operation completed successfully!
 
 ```
 
+## Delete a BackupKey (Not-Recommended)
+
+Altough it is not required and does not pose a security risk to keep an older (or even compromised) one, some users may want to delete BackupKeys.
+Keep in mind that deleting a BackupKey is *irreversible* and may block users from restoring access to their sensitive information in case they forget their domain password.
+
+<TBD>
 
 ## Build
 
