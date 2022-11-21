@@ -149,25 +149,27 @@ function Expire-MasterKey {
 
 
 
-
-
-function Rename-BKPublic {
+function Get-BKPublicLocation {
     param(
     [Parameter (Mandatory = $true)] [String]$mkPath
     )
     $nbDomainName = $env:userdomain;
     $bkName = "BK-" + $nbDomainName;
     $bkPath = ($mkPath + "\" + $bkName);
-    Write-Output ("[-] Checking public backup key existence..");
-    if (Test-Path -Path $bkPath -PathType leaf)
-       {
-        $newbkName = $bkName + "_" + (get-date).ticks;
-        Write-Output ("[+] Renaming old public key: " + $bkName + " to " + $newbkName );
-        Rename-Item -Path $bkPath -NewName ($newbkName);
-       }
-    else {
-       Write-Output ("[!] Public backup key does not exist or not in the correct path: " + $bkPath);
-       }
+    return $bkPath;
+}
+
+
+
+function Rename-BKPublic {
+    param(
+    [Parameter (Mandatory = $true)] [String]$bkPath
+    )    
+    
+    $bkName = Split-Path -Path $bkPath -Leaf;
+    $newbkName = $bkName + "_" + (get-date).ticks;
+    Write-Output ("[+] Renaming old public key: " + $bkName + " to " + $newbkName );
+    Rename-Item -Path $bkPath -NewName ($newbkName);
 }
 
 
@@ -200,16 +202,16 @@ function Invoke-BkpOnboard {
     [String] $mkLocation = (Get-ADUserMasterKeyLocation);
     
     
-        
-        Write-Output ("");      
+          
         [byte[]] $prefBytes = Get-PreferredFile($mkLocation);
-        Describe-PreferredFile($prefBytes);      
         $initialMkMap = Map-ADUserMasterKeys($mkLocation) | sort Modified -Descending;
 
         
 
         if ($Mode -eq "Info")
         {
+            Write-Output ("");
+            Describe-PreferredFile($prefBytes);
             Write-Output ("");
             Write-Output ("[-] Mapping User Master keys");
             $initialMkMap;
@@ -222,7 +224,9 @@ function Invoke-BkpOnboard {
             Write-Output ("[-] Checking for Master keys encrypted with Backup key: $BackupGuid");
             $checkMkwithBkp = $initialMkMap | Where-Object {$_.Backup_Guid -eq $BackupGuid};
             $checkMkwithBkp;
-            if ($checkMkwithBkp.Length -le 1)
+            $checkMkwithBkpLength = 0;
+            foreach ($obj in $checkMkwithBkp) {$checkMkwithBkpLength += 1}
+            if ($checkMkwithBkpLength -lt 1)
                 {
                     Write-Output ("[+] No Master keys found!");
                 }
@@ -230,7 +234,7 @@ function Invoke-BkpOnboard {
 
 
        
-        if (($Mode -eq "Soft") -or ($Mode -eq "Forced"))
+        if ($Mode -eq "Exec")
         {          
                        
             # AD connection test
@@ -251,23 +255,39 @@ function Invoke-BkpOnboard {
 
             # Rename the older public Bakcup key
             Write-Output ("");
-            Rename-BKPublic($mkLocation);
 
+    
+            $bkPublicPath = Get-BKPublicLocation -mkPath $mkLocation;
+            $bkPublicPath;
+            if (Test-Path -Path $bkPublicPath -PathType leaf) {
+                Rename-BKPublic -bkPath $bkPublicPath
+            }
+            else {
+                Write-Output ("[!] Public backup key does not exist or not in the correct path: " + $bkPath);
+                return;
+            }
 
-            Start-Sleep -Seconds 2 # Wait for files operations
+            Start-Sleep -Seconds 2 # Wait for file operations
 
 
             # Trigger DPAPI
             Write-Output ("");
             Write-Output ("[-] Triggering DPAPI Master key generation...");
-            $dpapi = Trigger-DPAPIProtect;
+            $dpapi = Trigger-DPAPIProtect; 
 
 
-            Start-Sleep -Seconds 2 # Wait for DPAPI operation.
+            Start-Sleep -Seconds 3 # Wait for DPAPI operation.
             
 
-            # TBD check that BK-XXX was fetched, otherwise user will fallback to use legacy key.
-
+            if (Test-Path -Path $bkPublicPath -PathType leaf) {
+                Write-Output ("[+] DPAPI latest public key fetched successfully");
+            }
+            else {
+                Write-Output ("[!] Error: public backup key  was not fetchedt! Master Key Backup will be downgraded to the legacy key.");
+                Get-ChildItem -Path $mkLocation -Force;
+                return;
+            }
+            
 
             Write-Output ("");
             [byte[]] $newPrefBytes = Get-PreferredFile($mkLocation);
@@ -281,13 +301,12 @@ function Invoke-BkpOnboard {
             Write-Output ("");
             if ($initialMkMap[0].Backup_Guid -eq $newMkMap[0].Backup_Guid)
             {
-                Write-Output ("[?] Looks like user has Master keys already onboarded to this Backup key: " + $newMkMap[0].Backup_Guid);
+                Write-Output ("[?] Looks like user already has Master keys onboarded to this Backup key: " + $newMkMap[0].Backup_Guid);
                 $newMkMap | Where-Object {$_.Backup_Guid -eq $newMkMap[0].Backup_Guid}
             }
             else
             {
                 Write-Output ("[+] SUCCESS: User onboarded to Backup key: " + $newMkMap[0].Backup_Guid);
-                $newMkMap | Where-Object {$_.Backup_Guid -eq $newMkMap[0].Backup_Guid}
             }
 
 

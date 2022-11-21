@@ -21,20 +21,21 @@ This repository contains two projects:
 * BackupKeyManager - The main Backup Key modification tool (C#) + MS-BKRP DLL (C language)
 * user-key-onboarding - A utility to onboard existing AD users to the domain backup key (PS)
 
-### Flow to generate and prefer new DPAPI Backup key:
+### Technical Flow:
+Follow the steps below to modify your domain DPAPI backup key. Full command lines for each step are detailed in the sections below.
 
 1. First, you will have to use the BackupKeyManager to extract the currently used (preferred) BackupKey. Write down its GUID in case you will need to revert back to it.
 2. Use the BackupKeyManager to create and prefer a new backup key in the domain (Note to write down the generated GUID).
 3. A restart will be required to the DC as we must reload the LSASS process.
 4. Use the BackupKeyManager to validate that the certificate's GUID being served is identical to the one generated during step #1.
-5. From a domain user session, execute the user-key-onboarding with either the soft or forced method. Note which user Master keys are using the new backup key ( By comparing their GUIDs).
+5. From a domain user session, execute the user-key-onboarding with the 'Exec' mode. Note which user Master keys are using the new backup key ( By comparing their GUIDs).
 6. Repeat step #4 for every user you would like to onboard to the new key.
 > New Domain users will use the new key automatically.
 
-## Listing
+## Listing BackupKeys
 
 To list existing Backup keys, you may use the PS command below (ActiveDirectory module is required).
-The result will include active directory secret objects that are related to the domain DPAPI functionality:
+The result will include active directory secret objects that are related to the domain's DPAPI Backup Key:
 ```
 PS C:\> Get-ADObject -LDAPFilter "(objectClass=secret)" -Properties Name,whenCreated,whenChanged | FT Name,whenCreated, whenChanged
 
@@ -131,24 +132,24 @@ Extracts the preferred BackupKey via MS-LSAD protocol (Domain Admin is required)
 C:\BackupKeyManager>BackupKeyManager.exe GetBackupKey -s dc.domain.local --analyze
 
 [+] Setting up connection with Domain Controller: dc.domain.local
-[+] Preferred backupkey Guid         : 170e6701-8213-48ce-bf52-1be5b6f1ab1e
-[+] Getting backup key     : G$BCKUPKEY_170e6701-8213-48ce-bf52-1be5b6f1ab1e
+[+] Preferred backupkey Guid         : b78e84e3-9105-439c-b0e3-94e3163e3dd4
+[+] Getting backup key     : G$BCKUPKEY_b78e84e3-9105-439c-b0e3-94e3163e3dd4
 [+] BackupKey size: 1952
 
 [+] Validating BackupKey header...
 
 [+] Analyzing certificate information:
-[Certificate] Serial Number:     1E-AB-F1-B6-E5-1B-52-BF-48-CE-82-13-17-0E-67-01
+[Certificate] Serial Number:     D4-3D-3E-16-E3-94-E3-B0-43-9C-91-05-B7-8E-84-E3
 [Certificate] Version:           3
 [Certificate] Issuer name:       domain.local
 [Certificate] Subject name:      domain.local
-[Certificate] Not Before:        7/21/2022 1:33:28 PM +00:00
-[Certificate] Not After:         7/21/2023 1:33:28 PM +00:00
+[Certificate] Not Before:        4/6/2022 8:45:20 AM +00:00
+[Certificate] Not After:         4/6/2023 8:45:20 AM +00:00
 [Certificate] Validity period:   365.00:00:00
 [Certificate] SignatureAlgo OID: 1.3.14.3.2.29
 [Certificate] PublicKeyInfo OID: 1.2.840.113549.1.1.1
 [Certificate] RSA Key Size:      2048 bits
-[Certificate] Certificate Guid:  170e6701-8213-48ce-bf52-1be5b6f1ab1e
+[Certificate] Certificate Guid:  b78e84e3-9105-439c-b0e3-94e3163e3dd4
 
 [+] Validating Certificate format...
 
@@ -266,7 +267,7 @@ Double check the GUID of the BackupKey intended to be deleted, right click on it
 
 ## Audit
 
-While listing the existing BackupKeys once again, we will see added objects created later than *4/06/2022*. These objects are keys created using the BackupKeyManager.
+At this point, when listing the existing BackupKeys, we will see added objects created later than *4/06/2022*. These objects are keys created using the BackupKeyManager.
 Note the new modified time of the *BCKUPKEY_PREFERRED* object which is now pointing on *BCKUPKEY_1e2b6567-3d6c-0642-eca0-ad0aef5f1b7e*
 ```
 PS C:\> Get-ADObject -LDAPFilter "(objectClass=secret)" -Properties Name,whenCreated,whenChanged | FT Name,whenCreated, whenChanged
@@ -291,11 +292,83 @@ whenCreated         whenChanged
 ```
 
 
-## user-key-onboarding
+## User-key-onboarding
+
+The *user-key-onboarding.ps1* script is a utility to onboard existing domain users to encrypt further master keys with the latest DPAPI domain backup key. The script **must be executed from each onboarded user's context**, meanning that it should to be deployed via either startup scripts, GPO, Intune, etc.
+The script can also provide information about existing Master Keys, and help you locate Master keys which are encrypted with specific backup key. The latter may help in either identifying Master keys at risk of exposure, or making sure that the user has onboarded to the latest backup key.
+
+### Examples
+
+1. Get familiar with the status of each current user Master keys. Note the GUID of the Backup key that these Master keys are encrypted with:
+```
+PS C:\Users\dpapitest> Invoke-BkpOnboard -Mode Info
+
+[-] Preferred Master key Guid: e7a8579d-33d7-40ef-95e7-bfe5d2344e85
+[-] Preferred Master key Expiration: 02/19/2023 06:05:14 UTC
+
+[-] Mapping User Master keys
+
+isPreferred Modified              Guid                                 Backup_Guid                         
+----------- --------              ----                                 -----------                         
+       True 11/21/2022 6:05:14 AM e7a8579d-33d7-40ef-95e7-bfe5d2344e85 b78e84e3-9105-439c-b0e3-94e3163e3dd4
+      False 11/21/2022 6:05:06 AM 781d2cb1-cfb8-4ceb-95fc-7cbaa28ffdbc b78e84e3-9105-439c-b0e3-94e3163e3dd4
+      False 11/21/2022 6:05:06 AM 5ec93b5b-cbb9-41ae-9527-77d1ccf20d93 b78e84e3-9105-439c-b0e3-94e3163e3dd4
+```
+
+2. Filter current user's Master keys to list those encrypted with specific Backup key:
+```
+PS C:\Users\dpapitest> Invoke-BkpOnboard -Mode Check -BackupGuid "1e2b6567-3d6c-0642-eca0-ad0aef5f1b7e"
+
+[-] Checking for Master keys encrypted with Backup key: 1e2b6567-3d6c-0642-eca0-ad0aef5f1b7e
+[+] No Master keys found!
+
+```
+
+3. Onboard the current user to encrypt any further Master keys with the latest Backup key:
+
+```
+
+PS C:\Users\dpapitest> Invoke-BkpOnboard -Mode Exec
+
+[-] Checking connection to the Active Directory: DOMAIN.LOCAL
+
+[+] Setting expiration to: 11/21/2022 06:10:22
+[+] Saving Data to: C:\Users\dpapitest\AppData\Roaming\Microsoft\Protect\S-1-5-21-2909993917-1331672730-2155874541-1111\Preferred
+
+C:\Users\dpapitest\AppData\Roaming\Microsoft\Protect\S-1-5-21-2909993917-1331672730-2155874541-1111\BK-domain
+[+] Renaming old public key: BK-domain to BK-domain_638046078227108620
+
+[-] Triggering DPAPI Master key generation...
+[+] DPAPI latest public key fetched successfully
+
+[-] Preferred Master key Guid: 4822e7d6-7d37-4258-a289-fda2738cdbf2
+[-] Preferred Master key Expiration: 02/19/2023 06:10:24 UTC
+
+[+] SUCCESS: User onboarded to Backup key: 1e2b6567-3d6c-0642-eca0-ad0aef5f1b7e
+```
+
+4. Once again, list the current user's Master keys, note the recently pushed Backup Key GUID (*1e2b6567-3d6c-0642-eca0-ad0aef5f1b7e*):
+````
+PS C:\Users\dpapitest> Invoke-BkpOnboard -Mode Info
+
+[-] Preferred Master key Guid: 4822e7d6-7d37-4258-a289-fda2738cdbf2
+[-] Preferred Master key Expiration: 02/19/2023 06:10:24 UTC
+
+[-] Mapping User Master keys
+
+isPreferred Modified              Guid                                 Backup_Guid                         
+----------- --------              ----                                 -----------                         
+       True 11/21/2022 6:10:24 AM 4822e7d6-7d37-4258-a289-fda2738cdbf2 1e2b6567-3d6c-0642-eca0-ad0aef5f1b7e
+      False 11/21/2022 6:05:14 AM e7a8579d-33d7-40ef-95e7-bfe5d2344e85 b78e84e3-9105-439c-b0e3-94e3163e3dd4
+      False 11/21/2022 6:05:06 AM 781d2cb1-cfb8-4ceb-95fc-7cbaa28ffdbc b78e84e3-9105-439c-b0e3-94e3163e3dd4
+      False 11/21/2022 6:05:06 AM 5ec93b5b-cbb9-41ae-9527-77d1ccf20d93 b78e84e3-9105-439c-b0e3-94e3163e3dd4
+
+```
+
+## Build
 
 TBD
 
-
-## Build
+## Credits
 
 TBD
