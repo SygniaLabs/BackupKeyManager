@@ -65,6 +65,23 @@ namespace BackupKeyManager
             }
         }
 
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct BACKUP_KEY_PUB_CERT_INFO
+        {
+            public System.Numerics.BigInteger certSerial;
+            public byte[] certVersionByte;
+            public string certIssuerStr;
+            public string certSubjectStr;
+            public DateTimeOffset certNotBefore;
+            public DateTimeOffset certNotAfter;
+            public string signatureAlgorithmOID;
+            public string subjectPublicKeyInfoOID;
+            public System.Numerics.BigInteger subjectPublicKeyInfoRSAKey;
+            public Guid asnCtx1CertGuid;
+            public Guid asnCtx2CertGuid;
+        }
+
         public enum LSA_AccessPolicy : long
         {
             POLICY_VIEW_LOCAL_INFORMATION = 0x00000001L,
@@ -177,6 +194,20 @@ namespace BackupKeyManager
         public static extern uint LsaFreeMemory(
             IntPtr buffer
         );
+
+
+        [DllImport("MS-BKRP.dll", SetLastError = true, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        public static extern bool get_bkrp_cert(
+        String dc,
+        ref IntPtr pDataOut,
+        ref int pDataSize
+        );
+
+        [DllImport("MS-BKRP.dll", SetLastError = true, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        public static extern bool bkrp_test(String dc);
+
+        [DllImport("MS-BKRP.dll", SetLastError = true)]
+        public static extern void free_bkrp(IntPtr ptr);
 
     }
 }

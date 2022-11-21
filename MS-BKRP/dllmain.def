@@ -1,0 +1,6 @@
+LIBRARY ExampleDLL
+
+EXPORTS
+	get_bkrp_cert @1
+	bkrp_test @2
+	free_bkrp @3
