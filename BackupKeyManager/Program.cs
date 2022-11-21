@@ -17,36 +17,37 @@ namespace BackupKeyManager
 
     class Program
     {
-        [Verb("GetPreferredBackupKey", HelpText = "Extract the preferred (current) backup key")]
-        class GetPreferredBackupKey_Opts
+        [Verb("GetPublicKey", HelpText = "Fetch the public certificate of the preferred BackupKey via MS-BKRP (Non-Admin operation).")]
+        class FetchBackupKeyCert_Opts
         {
-            [Option('s', "DomainController", Required = true, HelpText = "Primary Domain Controller FQDN to interact with")]
+            [Option('s', "DomainController", Required = true, HelpText = "Primary Domain Controller FQDN to interact with.")]
             public string DomainController { get; set; }
 
-            [Option('o', Required = false, HelpText = "(Optional) Flag to dump Backupkey and certificate DER format outputs to files")]
-            public bool OutputFile { get; set; }
-            
-            [Option("analyze", Required = false, HelpText = "(Optional) Analyze the exported BackupKey")]
+            [Option("analyze", Required = false, HelpText = "(Optional) Print information about the fetched certificate.")]
             public bool analyze { get; set; }
+
+            [Option('o', Required = false, HelpText = "(Optional) Flag to save the certificate to a file (DER format) in the current path.")]
+            public bool OutputFile { get; set; }
         }
 
-        [Verb("GetBackupKeyByGUID", HelpText = "Extract a BackupKey value by GUID")]
-        class GetBackupKeyByGUID_Opts
+        [Verb("GetBackupKey", HelpText = "Get a BackupKey. By default will get the preferred (currently used) one.")]
+        class GetBackupKey_Opts
         {
             [Option('s', "DomainController", Required = true, HelpText = "Primary Domain Controller FQDN to interact with")]
             public string DomainController { get; set; }
-
-            [Option("GUID", Required = true, HelpText = "A GUID format string for the required action (e.g. XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX).")]
+            
+            [Option("GUID", Required = false, HelpText = "(Optional) Specify non-preferred BackupKey GUID to get (e.g. XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX).")]
             public string GUID { get; set; }
 
-            [Option('o', Required = false, HelpText = "(Optional) Flag to dump Backupkey and certificate DER format outputs to files")]
+            [Option('o', Required = false, HelpText = "(Optional) Flag to save the Backupkey and certificate (DER format) outputs to files in the current path.")]
             public bool OutputFile { get; set; }
             
             [Option("analyze", Required = false, HelpText = "(Optional) Analyze the exported BackupKey")]
             public bool analyze { get; set; }
         }
 
-        [Verb("SetPreferredBackupKeyByGUID", HelpText = "Set a new preferred BackupLey by providing its GUID")]
+
+        [Verb("SetPreferredBackupKey", HelpText = "Set a new preferred BackupKey by providing its GUID")]
         class SetPreferredBackupKeyByGUID_Opts
         {
             [Option('s', "DomainController", Required = true, HelpText = "Primary Domain Controller FQDN to interact with")]
@@ -56,13 +57,13 @@ namespace BackupKeyManager
             public string GUID { get; set; }
         }
 
-        [Verb("GenerateNewBackupKey", HelpText = "Generate GUID and new BackupKey with option to push and set as preferred.")]
+        [Verb("GenerateNewBackupKey", HelpText = "Generate new BackupKey with option to push and set as preferred.")]
         class GenerateNewBackupKey_Opts
         {
             [Option('d', "DomainName", Required = true, HelpText = "FQDN of the targeted domain. This will be included in the public certificate.")]
             public string DomainName { get; set; }
 
-            [Option('o', Required = false, HelpText = "(Optional) Flag to dump BackupKey and certificate DER format outputs to files")]
+            [Option('o', Required = false, HelpText = "(Optional) Flag to save the Backupkey and certificate (DER format) outputs to files in the current path.")]
             public bool OutputFile { get; set; }
 
             [Option("push", Required = false, HelpText = "(Optional) Push the generated BackupKey to a Domain Controller.")]
@@ -75,7 +76,7 @@ namespace BackupKeyManager
             public bool set { get; set; }
         }
 
-        [Verb("BackupKeyFromFile", HelpText = "Load BackupKey from file with option to push it and set it as preferred.")]
+        [Verb("BackupKeyFromFile", HelpText = "Load BackupKey from file with option to push and set as preferred.")]
         class CreateBackupKeyFromFile_Opts
         {
             [Option('i', "InputFile", Required = true, HelpText = "BackupKey input file in the dumped/created format - '.dpapibkp'")]
@@ -91,25 +92,14 @@ namespace BackupKeyManager
             public bool set { get; set; }
         }
 
-        [Verb("Validate", HelpText = "Validates that the BackupKey setup. Validation should be made against all DCs in the domain.")]
+        [Verb("Validate", HelpText = "Validates the BackupKey setup. Validation should be made against all DCs in the domain.")]
         class CheckBackupKey_Opts
         {
-            [Option('s', "DomainController", Required = true, HelpText = "Primary Domain Controller FQDN to interact with.")]
+            [Option('s', "DomainController", Required = true, HelpText = "Domain Controller FQDN to interact with.")]
             public string DomainController { get; set; }
         }
 
-        [Verb("Fetch", HelpText = "Fetch the public BackupKey certificate via MS-BKRP (Non-Admin operation). ")]
-        class FetchBackupKeyCert_Opts
-        {
-            [Option('s', "DomainController", Required = true, HelpText = "Primary Domain Controller FQDN to interact with.")]
-            public string DomainController { get; set; }
-            
-            [Option("analyze", Required = false, HelpText = "(Optional) Print information about the fetched certificate.")]
-            public bool analyze { get; set; }
-            
-            [Option('o', Required = false, HelpText = "(Optional) Flag to save the certificate to a file (DER format) in the current path.")]
-            public bool OutputFile { get; set; }
-        }
+
 
 
         // Backup Key Cosntants
@@ -813,13 +803,12 @@ namespace BackupKeyManager
             });
 
             
-            var argParser = parser.ParseArguments<GetPreferredBackupKey_Opts,
-                              GetBackupKeyByGUID_Opts,
+            var argParser = parser.ParseArguments<FetchBackupKeyCert_Opts,
+                              GetBackupKey_Opts,
                               SetPreferredBackupKeyByGUID_Opts,
                               GenerateNewBackupKey_Opts,
                               CreateBackupKeyFromFile_Opts,
-                              CheckBackupKey_Opts,
-                              FetchBackupKeyCert_Opts>
+                              CheckBackupKey_Opts>
                               (args);
 
             try
@@ -828,38 +817,41 @@ namespace BackupKeyManager
 
 
                 int operation = argParser.MapResult(
-                    (GetPreferredBackupKey_Opts opts) =>
+                    (FetchBackupKeyCert_Opts opts) =>
                     {
-                        LsaPolicyHandle = Initialize(opts.DomainController);
-                        Guid preferredBackupKeyGUID = GetPreferredBackupGUID(LsaPolicyHandle);
-                        Console.WriteLine("[+] Preferred backupkey Guid         : {0}", preferredBackupKeyGUID.ToString());
-                                                    
-                        byte[] backupKeyBytes = GetBackupKeyByGUID(LsaPolicyHandle, preferredBackupKeyGUID);
-                        var dpapiDomainBackupKey = GetBackupKeyFromBytes(backupKeyBytes);
-                        byte[] BkpCertBytes = ExtractMSLsadBkpCertificate(dpapiDomainBackupKey);
-                        var BkpCertInfo = DecodeDERCertificate(BkpCertBytes);
-
-                        if (opts.analyze)
-                        {
-                            BkpCertInfoPrint(BkpCertInfo);
-                            string domainName = dcToDomain(opts.DomainController);
-                            BkpCertInfoValidate(BkpCertInfo, domainName);
-                        }
+                        byte[] msBkrpCert = GetMSBkrpServicedCert(opts.DomainController);
+                        var msBkrpCertInfo = DecodeDERCertificate(msBkrpCert);
+                        Console.WriteLine("[+] MS-BKRP Serviced Backupkey Guid         : {0}", msBkrpCertInfo.asnCtx1CertGuid.ToString());
 
                         if (opts.OutputFile)
                         {
-                            fileOutput(preferredBackupKeyGUID, backupKeyBytes);
-                            fileOutput(BkpCertInfo.asnCtx1CertGuid, BkpCertBytes, ".der");
+                            fileOutput(msBkrpCertInfo.asnCtx1CertGuid, msBkrpCert, ".der");
                         }
 
+                        if (opts.analyze)
+                        {
+                            BkpCertInfoPrint(msBkrpCertInfo);
+                            string domainName = dcToDomain(opts.DomainController);
+                            BkpCertInfoValidate(msBkrpCertInfo, domainName);
+                        }
                         return 0;
+
                     },
 
-                    (GetBackupKeyByGUID_Opts opts) =>
+                    (GetBackupKey_Opts opts) =>
                     {
+                        Guid BackupKeyGUID = Guid.Empty;
                         LsaPolicyHandle = Initialize(opts.DomainController);
-                        Guid BackupKeyGUID = new Guid(opts.GUID);
-                                                    
+                        
+                        if (String.IsNullOrEmpty(opts.GUID)) {
+                            BackupKeyGUID = GetPreferredBackupGUID(LsaPolicyHandle);
+                            Console.WriteLine("[+] Preferred backupkey Guid         : {0}", BackupKeyGUID.ToString());
+                        }
+                        else {
+                            BackupKeyGUID = new Guid(opts.GUID);
+                        }
+
+
                         byte[] backupKeyBytes = GetBackupKeyByGUID(LsaPolicyHandle, BackupKeyGUID);
                         var dpapiDomainBackupKey = GetBackupKeyFromBytes(backupKeyBytes);
                         byte[] BkpCertBytes = ExtractMSLsadBkpCertificate(dpapiDomainBackupKey);
@@ -870,14 +862,13 @@ namespace BackupKeyManager
                             BkpCertInfoPrint(BkpCertInfo);
                             string domainName = dcToDomain(opts.DomainController);
                             BkpCertInfoValidate(BkpCertInfo, domainName);
-                        } 
+                        }
 
                         if (opts.OutputFile)
                         {
                             fileOutput(BackupKeyGUID, backupKeyBytes);
                             fileOutput(BkpCertInfo.asnCtx1CertGuid, BkpCertBytes, ".der");
                         }
-
 
                         return 0;
                     },
@@ -1021,7 +1012,7 @@ namespace BackupKeyManager
                             Console.WriteLine("\r\n[+] SUCCESS! MS-BKRP secret encryption & decryption passed!");
                         }
                         else {
-                            Console.WriteLine("\r\n[!] MS-BKRP is unhealthy. Try reverting to the original backup key via SetPreferredBackupKeyByGUID and restart the DC.");
+                            Console.WriteLine("\r\n[!] MS-BKRP is unhealthy. Try reverting to the original backup key via SetPreferredBackupKey and restart the DC.");
                             return 1;
                         }
 
@@ -1029,26 +1020,7 @@ namespace BackupKeyManager
 
                     },
 
-                    (FetchBackupKeyCert_Opts opts) =>
-                    {
-                        byte[] msBkrpCert = GetMSBkrpServicedCert(opts.DomainController);
-                        var msBkrpCertInfo = DecodeDERCertificate(msBkrpCert);
-                        Console.WriteLine("[+] MS-BKRP Serviced Backupkey Guid         : {0}", msBkrpCertInfo.asnCtx1CertGuid.ToString());
 
-                        if (opts.OutputFile)
-                        {
-                            fileOutput(msBkrpCertInfo.asnCtx1CertGuid, msBkrpCert, ".der");
-                        }
-
-                        if (opts.analyze)
-                        {
-                            BkpCertInfoPrint(msBkrpCertInfo);
-                            string domainName = dcToDomain(opts.DomainController);
-                            BkpCertInfoValidate(msBkrpCertInfo, domainName);
-                        }
-                        return 0;
-
-                    },
                              
                     errors => 1);
 
