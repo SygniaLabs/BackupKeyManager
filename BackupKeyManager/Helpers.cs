@@ -51,5 +51,37 @@ namespace BackupKeyManager
             return HexAsBytes;
         }
 
+        public static void LogLine(String Type, String Message, bool PrependNewLine = false)
+        {           
+            if (PrependNewLine)
+            {
+                Console.WriteLine("");
+            }
+            switch (Type)
+            {
+                case "SUCCESS":
+                    Console.WriteLine("[+] {0}", Message);
+                        break;
+                case "INFO":
+                    Console.WriteLine("[-] {0}", Message);
+                    break;
+                case "ERROR":
+                    Console.WriteLine("[!] ERROR: {0}", Message);
+                        break;
+                case "DEBUG":
+                    Console.WriteLine("[*] {0}", Message);
+                        break;
+                case "ACTION":
+                    Console.WriteLine("[?] {0}", Message);
+                    break;
+                case "CERTINFO":
+                    Console.WriteLine("[Certificate] {0}", Message);
+                    break;
+                default:
+                    break;
+
+                }
+        }
+
     }
 }

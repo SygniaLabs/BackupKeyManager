@@ -8,6 +8,7 @@ For Active Directory users, one copy of this Master Key is encrypted with the us
 The second encrpytion was desgined to help users recover encrypted secrets in case they forget their own password.<br />
 The Domain BackupKey is a unique RSA key pair generated during Active Directory domain inception.
 Due to the fact that the BackupKey is permanent per domain, an exposure of this key provides an adversary with the ability to decrypt users' Master keys across the domain, indefinitely.<br />
+As of writing these words, we have not seen any method to replace the domain BackupKey before, not by Microsoft or any other entity.<br />
 
 The [BackupKeyManager]() is a tool to help organizations enhance their security on a post compromise scenario, where their DPAPI Domain BackupKey was exposed, and they wish to mitigate the risk of further exploitation with this key.
 The process is simply done by generating a new BackupKey and onboard existing users' to backup their Master Keys with the new BackupKey.
@@ -60,6 +61,8 @@ This set of secret objects are created during the domain inception.
 The BackupKeyManager 'help' provides information on what and how you can use it.
 There are few verbs alongside with specific flags you can set according to your needs.
 It is important to use this tool together with the Primary domain controller (PDC).
+
+> Requires .NET Framework 4.8
 
 ### Verbs required privileges
 Domain Admin privileges required for:

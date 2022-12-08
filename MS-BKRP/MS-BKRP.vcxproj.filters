@@ -15,13 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="framework.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="pch.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="dllmain.h">
+    <ClInclude Include="bkrp-mgr.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="generic_rpc.h">
@@ -35,13 +29,13 @@
     <ClCompile Include="dllmain.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="pch.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="generic_rpc.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="ms-bkrp_c.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="bkrp-mgr.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

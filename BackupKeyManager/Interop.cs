@@ -196,14 +196,14 @@ namespace BackupKeyManager
         );
 
 
-        [DllImport("MS-BKRP.dll", SetLastError = true, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        [DllImport("MS-BKRP.dll", SetLastError = true, CharSet = CharSet.Unicode)]
         public static extern bool get_bkrp_cert(
         String dc,
         ref IntPtr pDataOut,
         ref int pDataSize
         );
 
-        [DllImport("MS-BKRP.dll", SetLastError = true, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        [DllImport("MS-BKRP.dll", SetLastError = true, CharSet = CharSet.Unicode)]
         public static extern bool bkrp_test(String dc);
 
         [DllImport("MS-BKRP.dll", SetLastError = true)]

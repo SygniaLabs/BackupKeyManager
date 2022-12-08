@@ -1,4 +1,4 @@
-LIBRARY ExampleDLL
+LIBRARY MS-BKRP
 
 EXPORTS
 	get_bkrp_cert @1
