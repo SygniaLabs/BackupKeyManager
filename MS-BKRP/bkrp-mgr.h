@@ -13,6 +13,9 @@ const GUID BACKUPKEY_RETRIEVE_BACKUP_KEY_GUID = { 0x018ff48a, 0xeaba, 0x40c6, {0
 const GUID BACKUPKEY_RESTORE_GUID = { 0x47270c64, 0x2fc7, 0x499b, {0xac, 0x5b, 0x0e, 0x37, 0xcd, 0xce, 0x89, 0x9a} };
 
 BOOL kull_m_rpc_bkrp_generic(RPC_BINDING_HANDLE* hBinding, const GUID* pGuid, PVOID DataIn, DWORD dwDataIn, PVOID* pDataOut, DWORD* pdwDataOut);
+
 BOOL get_bkrp_cert(LPCWSTR dc, intptr_t *pDataOut, DWORD *dwDataOut);
+
 BOOL bkrp_test(LPCWSTR dc);
+
 void free_bkrp(void* pBuffer);

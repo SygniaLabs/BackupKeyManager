@@ -9,6 +9,7 @@ BOOL get_bkrp_cert(LPCWSTR dc,
 
 	if (kull_m_rpc_createBinding(L"ncacn_np", dc, L"\\pipe\\protected_storage", L"ProtectedStorage", RPC_C_IMP_LEVEL_IMPERSONATE, &hBinding, NULL)) {
 		wprintf(L"[-] Retrieving the current BackupKey public certificate via MS-BKRP...");
+		// 0xaaaaaaaa (pDataIn) and 0 (cbDataIn) are ignored by the server as specified in MS-BKRP section 3.1.4.1
 		if (kull_m_rpc_bkrp_generic(&hBinding, &BACKUPKEY_RETRIEVE_BACKUP_KEY_GUID, (PVOID)0xaaaaaaaa, 0, pDataOut, dwDataOut)) {
 			wprintf(L"OK -> Certificate size: %u\n", *dwDataOut);
 			status = TRUE;

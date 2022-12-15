@@ -103,21 +103,21 @@ namespace BackupKeyManager
 
 
         // Backup Key Cosntants
-        private static readonly uint BackupKeyVersion = 2;
-        private static readonly uint BackupKeyCspByteLength = 1172;  // CSP Length for 2048 bit Key Len
-        private static readonly int BackupKeyBitLength = 2048;
-        private static readonly string SignatureAlgOidOddballOIW = "1.3.14.3.2.29";
-        private static readonly int CertificateValidityPeriodYears = 1;
-        private static readonly int CertificateVersion = 0x2;
-        private static readonly int CertificateSerialNumberByteLen = 16;
-        private static readonly byte AsnSeqTag = 0x30; //Asn tag for Sequence
-        private static readonly byte AsnSetTag = 0x31; // Asn tag for SET
-        private static readonly byte AsnPrintableStringTag = 0x13;  // Asn tag for PrintableString
-        private static readonly byte[] AsnCommonName = { 0x06, 0x03, 0x55, 0x04, 0x03 }; // ASN Bytes for commonName
-        private static readonly byte AsnContextSpecific1Tag = 0x81;
-        private static readonly byte AsnContextSpecific2Tag = 0x82;
-        private static readonly byte AsnGuidLengthWithSign = 0x11;
-        private static readonly byte AsnGuidByteSign = 0x00;
+        private static readonly uint BACKUP_KEY_VERSION = 2;
+        private static readonly uint BACKUP_KEY_CSP_BYTE_LEN = 1172;  // CSP Length for 2048 bit Key Len
+        private static readonly int BACKUP_KEY_BIT_LEN = 2048;
+        private static readonly string SIGNATURE_ALG_OID_ODDBALL_OIW = "1.3.14.3.2.29";
+        private static readonly int CERT_VALIDITY_PERIOD_YEARS = 1;
+        private static readonly int CERT_VERSION = 0x2;
+        private static readonly int CERT_SERIAL_NUMBER_BYTE_LEN = 16;
+        private static readonly byte ASN_SEQUENCE_TAG = 0x30; //Asn tag for Sequence
+        private static readonly byte ASN_SET_TAG = 0x31; // Asn tag for SET
+        private static readonly byte ASN_PRINTABLE_STRING_TAG = 0x13;  // Asn tag for PrintableString
+        private static readonly byte[] ASN_COMMON_NAME = { 0x06, 0x03, 0x55, 0x04, 0x03 }; // ASN Bytes for commonName
+        private static readonly byte ASN_CONTEXT_SPECIFIC_1_TAG = 0x81;
+        private static readonly byte ASN_CONTEXT_SPECIFIC_2_TAG = 0x82;
+        private static readonly byte ASN_GUID_LEN_WITH_SIGN = 0x11;
+        private static readonly byte ASN_GUID_BYTE_SIGN = 0x00;
 
 
         public static bool checkNTstatus(uint ntStatus, string calledFunction, bool continueOnError = false)
@@ -144,27 +144,28 @@ namespace BackupKeyManager
             Interop.LSA_UNICODE_STRING secretName = new Interop.LSA_UNICODE_STRING("G$BCKUPKEY_PREFERRED");
 
             uint ntsResult = Interop.LsaRetrievePrivateData(LsaPolicyHandle, ref secretName, out IntPtr PrivateData);
+            if (!checkNTstatus(ntsResult, "LsaRetrievePrivateData")) { return Guid.Empty; }
+            
+            Interop.LSA_UNICODE_STRING lusSecretData =
+                (Interop.LSA_UNICODE_STRING)Marshal.PtrToStructure(PrivateData, typeof(Interop.LSA_UNICODE_STRING));
+            
+            byte[] guidBytes = new byte[lusSecretData.Length];
 
             try
             {
-                if (!checkNTstatus(ntsResult, "LsaRetrievePrivateData")) { return Guid.Empty; }
-
-                Interop.LSA_UNICODE_STRING lusSecretData =
-                    (Interop.LSA_UNICODE_STRING)Marshal.PtrToStructure(PrivateData, typeof(Interop.LSA_UNICODE_STRING));
-
-                byte[] guidBytes = new byte[lusSecretData.Length];
                 Marshal.Copy(lusSecretData.buffer, guidBytes, 0, lusSecretData.Length);  // Copy the GUID bytes from the secret data
-                //Interop.LsaFreeMemory(lusSecretData.buffer);
-                Guid backupKeyGuid = new Guid(guidBytes);
-
-                return backupKeyGuid;
             }
             finally
             {
+                lusSecretData.Dispose();
+                secretName.Dispose();
                 Marshal.FreeHGlobal(PrivateData);
             }
 
-            
+            Guid backupKeyGuid = new Guid(guidBytes);
+            return backupKeyGuid;
+
+
 
         }
 
@@ -187,7 +188,8 @@ namespace BackupKeyManager
             }
             finally
             {
-                Interop.LsaFreeMemory(PrivateData.buffer);
+                PrivateData.Dispose();
+                secretName.Dispose();
             }
         }
 
@@ -203,17 +205,12 @@ namespace BackupKeyManager
             // retrieve the bytes of the full DPAPI private backup key
             uint ntsResult = Interop.LsaRetrievePrivateData(LsaPolicyHandle, ref backupKeyLSA, out IntPtr PrivateData);            
             if (!checkNTstatus(ntsResult, "LsaRetrievePrivateData")) { return null; }
+            Interop.LSA_UNICODE_STRING backupKeyBytesLSA = (Interop.LSA_UNICODE_STRING)Marshal.PtrToStructure(PrivateData, typeof(Interop.LSA_UNICODE_STRING));
+            byte[] backupKeyBytes = new byte[backupKeyBytesLSA.Length];
 
             try
             {
-                Interop.LSA_UNICODE_STRING backupKeyBytesLSA = (Interop.LSA_UNICODE_STRING)Marshal.PtrToStructure(PrivateData, typeof(Interop.LSA_UNICODE_STRING));
-
-                byte[] backupKeyBytes = new byte[backupKeyBytesLSA.Length];
                 Marshal.Copy(backupKeyBytesLSA.buffer, backupKeyBytes, 0, backupKeyBytesLSA.Length);
-                //Interop.LsaFreeMemory(backupKeyBytesLSA.buffer);
-
-                Helpers.LogLine("INFO", $"BackupKey size: {backupKeyBytes.Length}");
-                return backupKeyBytes;
             }
             catch
             {
@@ -221,8 +218,12 @@ namespace BackupKeyManager
             }
             finally
             {
-                Marshal.FreeHGlobal(PrivateData);
+                backupKeyLSA.Dispose();
+                backupKeyBytesLSA.Dispose();
             }
+            
+            Helpers.LogLine("INFO", $"BackupKey size: {backupKeyBytes.Length}");
+            return backupKeyBytes;
         }
 
         // Gets a handle for the Backup Key secret by providing its GUID.  Caller must close the handle with LsaClose.
@@ -243,6 +244,7 @@ namespace BackupKeyManager
                     checkNTstatus(ntsResult, "LsaOpenSecret", continueOnError);
                 }
             }
+            BackupKeyNameLSA.Dispose();
 
             return BackupKeySecretHandle;
 
@@ -258,8 +260,10 @@ namespace BackupKeyManager
 
 
             uint ntsResult = Interop.LsaCreateSecret(LsaPolicyHandle, ref NewBackupKeyNameLSA, (uint)Interop.LSA_AccessPolicy.POLICY_CREATE_SECRET, out IntPtr NewBackupKeySecretHandle);
-
+            NewBackupKeyNameLSA.Dispose();
             checkNTstatus(ntsResult, "LsaCreateSecret");
+
+
 
             Helpers.LogLine("SUCCESS", $"New Backup key created successfully     : {NewBackupKeyName}");
             return NewBackupKeySecretHandle;
@@ -276,7 +280,7 @@ namespace BackupKeyManager
 
             Helpers.LogLine("INFO", "Writing bytes to Backup key...");
             uint ntsResult = Interop.LsaSetSecret(BackupKeyHandle, ref BackupKeyValueStrLSA, ref BackupKeyValueStrLSA);
-
+            BackupKeyValueStrLSA.Dispose();
             checkNTstatus(ntsResult, "LsaSetSecret");
 
             Helpers.LogLine("SUCCESS", "Bytes written successfully");
@@ -289,16 +293,16 @@ namespace BackupKeyManager
             // Construct Context specific 1 & 2 ASN1 raw data
             byte[] GuidByte = guid.ToByteArray();
             byte[] certContextSpecific1 = new byte[19]; // certContextSpecific1 Tag + GuidLength (With Null) + Null + Guid Bytes
-            certContextSpecific1[0] = AsnContextSpecific1Tag;
-            certContextSpecific1[1] = AsnGuidLengthWithSign;
-            certContextSpecific1[2] = AsnGuidByteSign;
+            certContextSpecific1[0] = ASN_CONTEXT_SPECIFIC_1_TAG;
+            certContextSpecific1[1] = ASN_GUID_LEN_WITH_SIGN;
+            certContextSpecific1[2] = ASN_GUID_BYTE_SIGN;
             GuidByte.CopyTo(certContextSpecific1, 3);
 
 
             byte[] certContextSpecific2 = new byte[19]; // certContextSpecific2 Tag + GuidLength (With Null) + Null + Guid Bytes
-            certContextSpecific2[0] = AsnContextSpecific2Tag;
-            certContextSpecific2[1] = AsnGuidLengthWithSign;
-            certContextSpecific2[2] = AsnGuidByteSign;
+            certContextSpecific2[0] = ASN_CONTEXT_SPECIFIC_2_TAG;
+            certContextSpecific2[1] = ASN_GUID_LEN_WITH_SIGN;
+            certContextSpecific2[2] = ASN_GUID_BYTE_SIGN;
             GuidByte.CopyTo(certContextSpecific2, 3);
 
 
@@ -341,9 +345,9 @@ namespace BackupKeyManager
         {
 
             byte[] GuidByte = backupKeyGuid.ToByteArray();            
-            Helpers.LogLine("INFO", $"Generating {BackupKeyBitLength} bit RSA Key pair...", true);
+            Helpers.LogLine("INFO", $"Generating {BACKUP_KEY_BIT_LEN} bit RSA Key pair...", true);
             
-            RSACryptoServiceProvider rsa = new RSACryptoServiceProvider(BackupKeyBitLength);
+            RSACryptoServiceProvider rsa = new RSACryptoServiceProvider(BACKUP_KEY_BIT_LEN);
             var cspBlob = rsa.ExportCspBlob(true);
 
             Helpers.LogLine("INFO", "Creating certificate"); // Accoridng to MS-BKRP [2.2.1] specification
@@ -363,7 +367,7 @@ namespace BackupKeyManager
             Interop.DOMAIN_BACKUP_KEY domainBackupKey = new Interop.DOMAIN_BACKUP_KEY();
 
             // Set the headers (UINT type)
-            domainBackupKey.bkpVersion = BackupKeyVersion;
+            domainBackupKey.bkpVersion = BACKUP_KEY_VERSION;
             domainBackupKey.cspLen = Convert.ToUInt32(cspBlob.Length);
             domainBackupKey.certificateLength = Convert.ToUInt32(certBytesWithGuid.Length);
             
@@ -388,6 +392,7 @@ namespace BackupKeyManager
 
             Interop.LSA_UNICODE_STRING dcName = new Interop.LSA_UNICODE_STRING(dc);
             uint ntsResult = Interop.LsaOpenPolicy(ref dcName, ref aObjectAttributes, (uint)Interop.LSA_AccessPolicy.POLICY_ALL, out IntPtr LsaPolicyHandle);
+            dcName.Dispose();
             checkNTstatus(ntsResult, "LsaOpenPolicy");
 
             return LsaPolicyHandle;
@@ -414,8 +419,8 @@ namespace BackupKeyManager
         {
             Helpers.LogLine("INFO", "Validating BackupKey header...", true);
             //Header validations:
-            if (dpapiBackupKey.bkpVersion == BackupKeyVersion &&   // 02 00 00 00
-                 dpapiBackupKey.cspLen == BackupKeyCspByteLength &&     // 94 04 00 00  - This will make sure we choose 2048 bit key.
+            if (dpapiBackupKey.bkpVersion == BACKUP_KEY_VERSION &&   // 02 00 00 00
+                 dpapiBackupKey.cspLen == BACKUP_KEY_CSP_BYTE_LEN &&     // 94 04 00 00  - This will make sure we choose 2048 bit key.
                  dpapiBackupKey.certificateLength > 0
                  )
             {
@@ -583,27 +588,27 @@ namespace BackupKeyManager
                 status = false;
             }
 
-            if ((BkpCertInfo.subjectPublicKeyInfoRSAKey.ToByteArray().Length - 1) * 8 != BackupKeyBitLength)
+            if ((BkpCertInfo.subjectPublicKeyInfoRSAKey.ToByteArray().Length - 1) * 8 != BACKUP_KEY_BIT_LEN)
             {
-                Helpers.LogLine("ERROR", $"Public key must be of {BackupKeyBitLength} bit in length");
+                Helpers.LogLine("ERROR", $"Public key must be of {BACKUP_KEY_BIT_LEN} bit in length");
                 status = false;
             }
 
-            if (BkpCertInfo.signatureAlgorithmOID != SignatureAlgOidOddballOIW)
+            if (BkpCertInfo.signatureAlgorithmOID != SIGNATURE_ALG_OID_ODDBALL_OIW)
             {
-                Helpers.LogLine("ERROR", $"Signature algorithm must be {SignatureAlgOidOddballOIW} Oddball OIW");
+                Helpers.LogLine("ERROR", $"Signature algorithm must be {SIGNATURE_ALG_OID_ODDBALL_OIW} Oddball OIW");
                 status = false;
             }
 
-            if (BkpCertInfo.certNotBefore.AddYears(CertificateValidityPeriodYears) != BkpCertInfo.certNotAfter)
+            if (BkpCertInfo.certNotBefore.AddYears(CERT_VALIDITY_PERIOD_YEARS) != BkpCertInfo.certNotAfter)
             {
                 Helpers.LogLine("ERROR", $"Certificate validity should be 365 days");
                 status = false;
             }
 
-            if (BkpCertInfo.certVersionByte[0] != CertificateVersion)
+            if (BkpCertInfo.certVersionByte[0] != CERT_VERSION)
             {
-                Helpers.LogLine("ERROR", $"Certificate version should be {CertificateVersion + 1}");
+                Helpers.LogLine("ERROR", $"Certificate version should be {CERT_VERSION + 1}");
                 status = false;
             }
 
@@ -619,7 +624,7 @@ namespace BackupKeyManager
                 status = false;
             }
 
-            if (BkpCertInfo.certSerial.ToByteArray().Length != CertificateSerialNumberByteLen)
+            if (BkpCertInfo.certSerial.ToByteArray().Length != CERT_SERIAL_NUMBER_BYTE_LEN)
             {
                 Helpers.LogLine("ERROR", "Serial number must be exactly 16 bytes in length");
                 status = false;
@@ -656,17 +661,17 @@ namespace BackupKeyManager
             var domainNameForBkp = domainName + "\0";  // For some reason domain name, stored with trailing null
             var domainNameUnicode = Encoding.Convert(Encoding.Default, Encoding.Unicode, Encoding.Default.GetBytes(domainNameForBkp)); // Observed Backup key certificate DN encoded with Unicode.
 
-            var dnRawLen = 6 + AsnCommonName.Length + 2 + domainNameUnicode.Length; // Sequence (2) + Set(2) + Sequence(2) + AsnCommonName (5) + Printablestring (2) + domainNameUnicode length
+            var dnRawLen = 6 + ASN_COMMON_NAME.Length + 2 + domainNameUnicode.Length; // Sequence (2) + Set(2) + Sequence(2) + ASN_COMMON_NAME (5) + Printablestring (2) + domainNameUnicode length
             byte[] dnRaw = new byte[dnRawLen];
 
-            dnRaw[0] = AsnSeqTag; 
+            dnRaw[0] = ASN_SEQUENCE_TAG; 
             dnRaw[1] = Convert.ToByte(dnRawLen - 2);
-            dnRaw[2] = AsnSetTag; 
+            dnRaw[2] = ASN_SET_TAG; 
             dnRaw[3] = Convert.ToByte(dnRawLen - 4);
-            dnRaw[4] = AsnSeqTag; 
+            dnRaw[4] = ASN_SEQUENCE_TAG; 
             dnRaw[5] = Convert.ToByte(dnRawLen - 6);
-            Array.Copy(AsnCommonName, 0, dnRaw, 6, AsnCommonName.Length);
-            dnRaw[11] = AsnPrintableStringTag;
+            Array.Copy(ASN_COMMON_NAME, 0, dnRaw, 6, ASN_COMMON_NAME.Length);
+            dnRaw[11] = ASN_PRINTABLE_STRING_TAG;
             dnRaw[12] = Convert.ToByte(domainNameUnicode.Length);
             Array.Copy(domainNameUnicode, 0, dnRaw, 13, domainNameUnicode.Length);
             X500DistinguishedName dnBuild = new X500DistinguishedName(dnRaw);
@@ -684,9 +689,9 @@ namespace BackupKeyManager
 
             int size = Marshal.SizeOf(domainBackupKey);
             IntPtr ptr = IntPtr.Zero;
+            ptr = Marshal.AllocHGlobal(size);
             try
-            {
-                ptr = Marshal.AllocHGlobal(size);
+            {   
                 Marshal.Copy(domainBackupKeyBytes, 0, ptr, size);
                 domainBackupKey = (Interop.DOMAIN_BACKUP_KEY)Marshal.PtrToStructure(ptr, domainBackupKey.GetType());
                 domainBackupKey.AllocBkpData(domainBackupKeyBytes, 
