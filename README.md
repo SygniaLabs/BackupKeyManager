@@ -366,12 +366,18 @@ isPreferred Modified              Guid                                 Backup_Gu
       False 11/21/2022 6:05:06 AM 781d2cb1-cfb8-4ceb-95fc-7cbaa28ffdbc b78e84e3-9105-439c-b0e3-94e3163e3dd4
       False 11/21/2022 6:05:06 AM 5ec93b5b-cbb9-41ae-9527-77d1ccf20d93 b78e84e3-9105-439c-b0e3-94e3163e3dd4
 
-```
+````
 
 ## Build
 
-TBD
+Simply clone the repository and build the solution using Visual Studio. The solution includes C# and C projects, so you should set the build configuration to Release, x64/x86 according to the running system architecture.<br>
+Coded and tested using Microsoft Visual Studio 2022 Version 17.2.5.<br>
+Following a successful build, BackupKeyManager.exe together will all required DLLs will be exported to this path: **BackupKeyManager\x64\Release**.<br>
+Make sure to copy the entire Release directory and execute the tool from it.
+
 
 ## Credits
 
-TBD
+Huge credit goes to [@harmj0y](https://twitter.com/harmj0y) and [@gentilkiwi](https://twitter.com/gentilkiwi) for their work and contribution to the DPAPI topic as a whole. Some code and examples borrowed from their projects [SharpDPAPI](https://github.com/GhostPack/SharpDPAPI) and [basic_rpc](https://github.com/gentilkiwi/basic_rpc).<br>
+Credit goes to [@oleglerner](https://github.com/oleglerner) and [@lbinyamin](https://github.com/lbinyamin) for their contirbution in making this research and implementation happen!
+
