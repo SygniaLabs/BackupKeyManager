@@ -13,7 +13,7 @@ As of writing these words, we have not seen any method to replace the domain Bac
 The [BackupKeyManager]() is a tool to help organizations enhance their security on a post compromise scenario, where their DPAPI Domain BackupKey was exposed, and they wish to mitigate the risk of further exploitation with this key.
 The process is simply done by generating a new BackupKey and onboard existing users' to backup their Master Keys with the new BackupKey.
 
-For more information and the research behind this tool you can visit our blogpost -> [The downfall of DPAPI's top-secret weapon]()
+For more information and the research behind this tool you can visit our blogpost -> [The downfall of DPAPI's top-secret weapon](https://blog.sygnia.co/the-downfall-of-dpapis-top-secret-weapon)
 
 
 ## Usage
