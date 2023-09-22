@@ -107,7 +107,7 @@ namespace BackupKeyManager
         private static readonly uint BACKUP_KEY_CSP_BYTE_LEN = 1172;  // CSP Length for 2048 bit Key Len
         private static readonly int BACKUP_KEY_BIT_LEN = 2048;
         private static readonly string SIGNATURE_ALG_OID_ODDBALL_OIW = "1.3.14.3.2.29";
-        private static readonly int CERT_VALIDITY_PERIOD_YEARS = 1;
+        private static readonly int CERT_VALIDITY_PERIOD_DAYS = 365;
         private static readonly int CERT_VERSION = 0x2;
         private static readonly int CERT_SERIAL_NUMBER_BYTE_LEN = 16;
         private static readonly byte ASN_SEQUENCE_TAG = 0x30; //Asn tag for Sequence
@@ -157,9 +157,8 @@ namespace BackupKeyManager
             }
             finally
             {
-                lusSecretData.Dispose();
+                Interop.LsaFreeMemory(PrivateData);
                 secretName.Dispose();
-                Marshal.FreeHGlobal(PrivateData);
             }
 
             Guid backupKeyGuid = new Guid(guidBytes);
@@ -219,7 +218,7 @@ namespace BackupKeyManager
             finally
             {
                 backupKeyLSA.Dispose();
-                backupKeyBytesLSA.Dispose();
+                Interop.LsaFreeMemory(PrivateData);
             }
             
             Helpers.LogLine("INFO", $"BackupKey size: {backupKeyBytes.Length}");
@@ -306,7 +305,6 @@ namespace BackupKeyManager
             GuidByte.CopyTo(certContextSpecific2, 3);
 
 
-
             // Transform Certificate to ASN, and navigate.
             var certASN = new AsnReader(TbsCertificateBytes, AsnEncodingRules.DER);
             var certMaintSeq = certASN.ReadSequence();
@@ -357,7 +355,7 @@ namespace BackupKeyManager
             var dn = buildDNforBkp(domainName);                // Certificate Distinguished Name
             
             var certRequest = new CertificateRequest(dn, rsa, HashAlgorithmName.SHA1, RSASignaturePadding.Pkcs1);
-            var certificate = certRequest.Create(dn, generator, DateTime.UtcNow, DateTime.UtcNow.AddYears(1), certSerial);
+            var certificate = certRequest.Create(dn, generator, DateTime.UtcNow, DateTime.UtcNow.AddDays(CERT_VALIDITY_PERIOD_DAYS), certSerial);
             
             var certBytes = certificate.Export(X509ContentType.Cert);
             var certBytesWithGuid = pushGuidtoTbsCertificate(backupKeyGuid, certBytes);  // Appending key Guid to issuerUniqueID &  subjectUniqueID slots
@@ -545,12 +543,15 @@ namespace BackupKeyManager
             BkpCertInfo.asnCtx1CertGuid = new Guid(CertGuidByte1);
             BkpCertInfo.asnCtx2CertGuid = new Guid(CertGuidByte2);
 
-            /*
-            Helpers.LogLine("INFO", [ASN] - {0}: {1}", asnMainTag, asnMainTagLength);
-            Helpers.LogLine("INFO", "[ASN]    - {0}: {1}", asnFirstTagInMainSeq, asnFirstTagInMainSeqLength);
-            Helpers.LogLine("INFO", "[ASN]    - {0}: {1}", asnSecondTagInMainSeq, asnSecondTagInMainSeqLength);
-            Helpers.LogLine("INFO", "[ASN]    - {0}: {1}", asnThirdTagInMainSeq, asnThirdTagInMainSeqLength);
-            */
+
+/*            Helpers.LogLine("INFO", "Analyzing ASN.1 information:", true);
+            Helpers.LogLine("ASNINFO", $" - {asnMainTag}: {asnMainTagLength}" );
+            Helpers.LogLine("ASNINFO", $"    - {asnFirstTagInMainSeq}: {asnFirstTagInMainSeqLength}");
+            Helpers.LogLine("ASNINFO", $"      - Context Specific 0 - {BitConverter.ToString(certVersionEncoded.ToArray())} : {certVersionEncoded.Length}");
+            Helpers.LogLine("ASNINFO", $"      - Context Specific 1 - {BitConverter.ToString(issuerUniqueIDEncoded.ToArray())} : {issuerUniqueIDEncoded.Length}");
+            Helpers.LogLine("ASNINFO", $"      - Context Specific 2 - {BitConverter.ToString(subjectUniqueIDEncoded.ToArray())} : {subjectUniqueIDEncoded.Length}");
+            Helpers.LogLine("ASNINFO", $"    - {asnSecondTagInMainSeq}: {asnSecondTagInMainSeqLength}");
+            Helpers.LogLine("ASNINFO", $"    - {asnThirdTagInMainSeq}: {asnThirdTagInMainSeqLength}");*/
 
             return BkpCertInfo;
         }
@@ -600,7 +601,7 @@ namespace BackupKeyManager
                 status = false;
             }
 
-            if (BkpCertInfo.certNotBefore.AddYears(CERT_VALIDITY_PERIOD_YEARS) != BkpCertInfo.certNotAfter)
+            if (BkpCertInfo.certNotBefore.AddDays(CERT_VALIDITY_PERIOD_DAYS) != BkpCertInfo.certNotAfter)
             {
                 Helpers.LogLine("ERROR", $"Certificate validity should be 365 days");
                 status = false;
@@ -1025,11 +1026,11 @@ namespace BackupKeyManager
                     {
                         LsaPolicyHandle = Initialize(opts.DomainController);
                         Guid currentPreferredGuid = GetPreferredBackupGUID(LsaPolicyHandle);
-                        Helpers.LogLine("[+] Preferred Backupkey Guid         : {0}\r\n", currentPreferredGuid.ToString());
+                        Helpers.LogLine("SUCCESS", $"Preferred Backupkey Guid         : {currentPreferredGuid.ToString()}\r\n");
                                                     
                         byte[] msBkrpCert = GetMSBkrpServicedCert(opts.DomainController);
                         var msBkrpCertInfo = DecodeDERCertificate(msBkrpCert);
-                        Helpers.LogLine("[+] MS-BKRP Serviced Backupkey Guid         : {0}", msBkrpCertInfo.asnCtx1CertGuid.ToString());
+                        Helpers.LogLine("SUCCESS", $"MS-BKRP Serviced Backupkey Guid         : {msBkrpCertInfo.asnCtx1CertGuid.ToString()}");
 
 
                         if (currentPreferredGuid == msBkrpCertInfo.asnCtx1CertGuid) {
