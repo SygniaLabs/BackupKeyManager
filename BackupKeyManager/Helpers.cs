@@ -77,6 +77,9 @@ namespace BackupKeyManager
                 case "CERTINFO":
                     Console.WriteLine("[Certificate] {0}", Message);
                     break;
+/*                case "ASNINFO":
+                    Console.WriteLine("[ASN] {0}", Message);
+                    break;*/
                 default:
                     break;
 
