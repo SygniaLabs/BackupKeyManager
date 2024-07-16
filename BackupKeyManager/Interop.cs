@@ -20,6 +20,15 @@ namespace BackupKeyManager
                 buffer = Marshal.StringToHGlobalUni(s);
             }
 
+            public LSA_UNICODE_STRING(byte[] ba)
+            {
+                Length = (ushort)(ba.Length);
+                MaximumLength = Length;
+                buffer = Marshal.AllocHGlobal(Length);
+
+                Marshal.Copy(ba, 0, buffer, ba.Length);
+            }
+
             public void Dispose()
             {
                 Marshal.FreeHGlobal(buffer);
