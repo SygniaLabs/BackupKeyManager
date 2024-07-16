@@ -270,12 +270,8 @@ namespace BackupKeyManager
 
         public static void SetBackupKeyValue(IntPtr BackupKeyHandle, byte[] BackupKeyValueByte)
         {
-
-            string BackupKeyValueStr = System.Text.Encoding.Unicode.GetString(BackupKeyValueByte);
-            Interop.LSA_UNICODE_STRING BackupKeyValueStrLSA = new Interop.LSA_UNICODE_STRING(BackupKeyValueStr);
-
-            //IntPtr BackupKeyValueStrLSAPointer = Marshal.AllocHGlobal(Marshal.SizeOf(BackupKeyValueStrLSA));
-            //Marshal.StructureToPtr(BackupKeyValueStrLSA, BackupKeyValueStrLSAPointer, false);
+            
+            Interop.LSA_UNICODE_STRING BackupKeyValueStrLSA = new Interop.LSA_UNICODE_STRING(BackupKeyValueByte);
 
             Helpers.LogLine("INFO", "Writing bytes to Backup key...");
             uint ntsResult = Interop.LsaSetSecret(BackupKeyHandle, ref BackupKeyValueStrLSA, ref BackupKeyValueStrLSA);
@@ -808,7 +804,6 @@ namespace BackupKeyManager
 
 
             Guid bkpGuid = new Guid(guidArr);
-
 
             if (bkpGuid.Equals(Guid.Empty) || maxAttempts >= 1000)
             {
